@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -32,23 +33,139 @@ class MapPage extends StatefulWidget {
   State<MapPage> createState() => _MapPageState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
+  // Controller para manipular la vista del mapa
   final MapController _mapController = MapController();
-  final LatLng _center = LatLng(
-    -2.077552237110873,
-    -79.8563168612131,
-  ); // Ciudad de guayaquil por defecto
+
+  // Centro por defecto (Guayaquil)
+  final LatLng _center = LatLng(-2.077552237110873, -79.8563168612131);
+
   double _zoom = 16.0;
-  LatLng? _currentPosition;
+  LatLng? _currentPosition; // última posición conocida
+
+  // Stream para actualizaciones continuas de posición
+  StreamSubscription<Position>? _positionStream;
+
+  // Si true, la cámara se recentrará automáticamente cuando llegue nueva posición
+  bool _followUser = true;
+
+  // Throttling para no redibujar demasiado frecuentemente
+  int _lastUpdateMillis = 0;
+  static const int _minUpdateIntervalMs = 100; // 10 updates por segundo máximo
+
+  @override
+  void initState() {
+    super.initState();
+    _startLocationUpdates();
+  }
+
+  @override
+  void dispose() {
+    _positionStream?.cancel();
+    super.dispose();
+  }
+
+  // Inicia el stream de ubicación (pide permisos si hace falta)
+  Future<void> _startLocationUpdates() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        // No hay permiso; el usuario debe habilitarlo en ajustes
+        return;
+      }
+
+      // Cancelar suscripción previa si existe
+      await _positionStream?.cancel();
+
+      // Escuchar actualizaciones del GPS
+      _positionStream =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy:
+                  LocationAccuracy.bestForNavigation, // o LocationAccuracy.best
+              distanceFilter: 1, // aprox cada 1 metro
+            ),
+          ).listen((Position pos) {
+            if (!mounted) return;
+
+            final now = DateTime.now().millisecondsSinceEpoch;
+            if (now - _lastUpdateMillis < _minUpdateIntervalMs) return;
+            _lastUpdateMillis = now;
+
+            final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
+            setState(() {
+              _currentPosition = newLatLng;
+            });
+
+            if (_followUser) {
+              // Centrar la cámara en la nueva posición
+              _mapController.move(newLatLng, _zoom);
+            }
+          });
+    } catch (e) {
+      // Opcional: log o mostrar mensaje
+    }
+  }
+
+  // Obtener la ubicación puntual y centrar (botón 'locate me')
+  Future<void> _locateOnce() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permiso de ubicación denegado')),
+        );
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
+      setState(() {
+        _currentPosition = newLatLng;
+      });
+      _mapController.move(newLatLng, _zoom);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al obtener ubicación: $e')));
+    }
+  }
+
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mapa (OpenStreetMap)')),
+      appBar: AppBar(
+        title: const Text('Mapa (OpenStreetMap)'),
+        actions: [
+          // Toggle para activar/desactivar seguir al usuario
+          IconButton(
+            icon: Icon(_followUser ? Icons.gps_fixed : Icons.gps_not_fixed),
+            onPressed: () {
+              setState(() {
+                _followUser = !_followUser;
+              });
+            },
+          ),
+        ],
+      ),
       body: FlutterMap(
         mapController: _mapController,
         options: MapOptions(
-          center: _center,
+          center: _currentPosition ?? _center,
           zoom: _zoom,
           interactiveFlags: InteractiveFlag.all,
         ),
@@ -62,8 +179,8 @@ class _MapPageState extends State<MapPage> {
             markers: [
               Marker(
                 point: _currentPosition ?? _center,
-                width: 100,
-                height: 100,
+                width: 48,
+                height: 48,
                 builder: (ctx) =>
                     const Icon(Icons.location_on, color: Colors.red, size: 40),
               ),
@@ -74,67 +191,22 @@ class _MapPageState extends State<MapPage> {
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // FloatingActionButton(
-          //   heroTag: 'zoom_in',
-          //   child: const Icon(Icons.zoom_in),
-          //   onPressed: () {
-          //     setState(() {
-          //       _zoom = (_zoom + 1).clamp(1.0, 19.0);
-          //       _mapController.move(_mapController.center, _zoom);
-          //     });
-          //   },
-          // ),
-          // const SizedBox(height: 8),
-          // FloatingActionButton(
-          //   heroTag: 'zoom_out',
-          //   child: const Icon(Icons.zoom_out),
-          //   onPressed: () {
-          //     setState(() {
-          //       _zoom = (_zoom - 1).clamp(1.0, 19.0);
-          //       _mapController.move(_mapController.center, _zoom);
-          //     });
-          //   },
-          // ),
-          const SizedBox(height: 8),
+          // Botón para localizar una vez (centrar en la posición actual)
           FloatingActionButton(
             heroTag: 'locate_me',
+            onPressed: _locateOnce,
             child: const Icon(Icons.my_location),
-            onPressed: () async {
-              // Request permission and get location
-              LocationPermission permission =
-                  await Geolocator.checkPermission();
-              if (permission == LocationPermission.denied) {
-                permission = await Geolocator.requestPermission();
-              }
-              if (permission == LocationPermission.deniedForever ||
-                  permission == LocationPermission.denied) {
-                // Permissions are denied, show a message
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Permiso de ubicación denegado'),
-                  ),
-                );
-                return;
-              }
-
-              try {
-                final pos = await Geolocator.getCurrentPosition(
-                  desiredAccuracy: LocationAccuracy.high,
-                );
-                setState(() {
-                  _currentPosition = LatLng(pos.latitude, pos.longitude);
-                  _mapController.move(_currentPosition!, _zoom);
-                });
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error al obtener ubicación: $e')),
-                );
-              }
-            },
           ),
+          // (El toggle de 'seguir usuario' está en el AppBar)
         ],
+      ),
+      bottomNavigationBar: SimpleBottomNav(
+        currentIndex: _selectedIndex,
+        onTap: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
       ),
     );
   }
