@@ -42,7 +42,7 @@ class CustomBottomNav extends StatelessWidget {
                 color: Colors.black,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
+                    color: const Color.fromRGBO(0, 0, 0, 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, -2),
                   ),
@@ -196,9 +196,9 @@ class HexagonButton extends StatelessWidget {
               color: color,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
+                  color: const Color.fromRGBO(0, 0, 0, 0.25),
                   blurRadius: 6,
-                  offset: Offset(0, 3),
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),

@@ -5,6 +5,7 @@ import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_conductor/pages/history_page.dart';
 
 void main() {
   runApp(const MapApp());
@@ -16,11 +17,15 @@ class MapApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mapa con OpenStreetMap',
+      title: 'Ivancar',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
+      routes: {
+        '/history': (context) => const HistoryPage(),
+      },
       home: const MapPage(),
     );
   }
@@ -149,7 +154,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mapa (OpenStreetMap)'),
+        title: const Text('Ivancar'),
         actions: [
           // Toggle para activar/desactivar seguir al usuario
           IconButton(
@@ -189,6 +194,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         ],
       ),
       floatingActionButton: Column(
+        
         mainAxisSize: MainAxisSize.min,
         children: [
           // Botón para localizar una vez (centrar en la posición actual)
@@ -201,12 +207,6 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         ],
       ),
       bottomNavigationBar: SimpleBottomNav(
-        currentIndex: _selectedIndex,
-        onTap: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
       ),
     );
   }
