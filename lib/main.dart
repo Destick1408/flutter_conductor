@@ -3,12 +3,14 @@ import 'package:flutter_conductor/pages/login_page.dart';
 import 'package:flutter_conductor/pages/map_page.dart';
 import 'package:flutter_conductor/pages/history_page.dart';
 
-void main() {
-  runApp(const MapApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // <- obligatorio antes de usar plugins
+  // cualquier inicialización asíncrona aquí si hace falta
+  runApp(const MyApp());
 }
 
-class MapApp extends StatelessWidget {
-  const MapApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {

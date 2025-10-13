@@ -1,7 +1,47 @@
 import 'package:flutter/material.dart';
+import '../api/auth.dart'; // <-- nuevo import
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _userController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
+
+  @override
+  void dispose() {
+    _userController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
+  void _onLoginPressed() async {
+    final username = _userController.text.trim();
+    final password = _passController.text;
+    if (username.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Usuario y contraseña requeridos')),
+      );
+      return;
+    }
+
+    final ok = await AuthApi.login(username, password);
+
+    // evitar usar context a través de la brecha async:
+    if (!mounted) return;
+
+    if (ok) {
+      Navigator.pushReplacementNamed(context, '/map');
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Login fallido')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,26 +63,29 @@ class LoginPage extends StatelessWidget {
                   'Login Page',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text('Usuario:', style: Theme.of(context).textTheme.bodyMedium),
                 TextField(
-                  decoration: InputDecoration(
+                  controller: _userController,
+                  decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'Ingresa tu usuario',
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
                   'Contraseña:',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 TextField(
-                  decoration: InputDecoration(
+                  controller: _passController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     hintText: 'Ingresa tu contraseña',
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -50,10 +93,7 @@ class LoginPage extends StatelessWidget {
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
                     ),
-                    onPressed: () {
-                      // Navegar a la página del mapa
-                      Navigator.pushReplacementNamed(context, '/map');
-                    },
+                    onPressed: _onLoginPressed,
                     child: const Text('Iniciar Sesión'),
                   ),
                 ),
