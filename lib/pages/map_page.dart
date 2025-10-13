@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_conductor/api/auth.dart';
 import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -100,6 +101,18 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     }
   }
 
+  Future<void> _onLogoutPressed() async {
+    try {
+      await AuthApi.logout(); // notifica al backend y borra tokens localmente
+    } catch (e) {
+      // opcional: log o mostrar error
+      print('Logout error: $e');
+    }
+    if (!mounted) return;
+    // Lleva al login y limpia la pila para que no se pueda volver atrás
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,7 +120,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         title: const Text('Ivancar'),
         actions: [
           IconButton(
-            onPressed: () => Navigator.pushNamed(context, '/login'),
+            onPressed: _onLogoutPressed,
             icon: const Icon(Icons.logout),
           ),
         ],

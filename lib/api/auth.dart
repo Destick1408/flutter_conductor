@@ -1,9 +1,12 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- añadido
+import 'dart:async';
 
-const String _baseUrl =
-    'http://192.168.100.26:8000'; // Emulador Android: usa 10.0.2.2 en lugar de 127.0.0.1 si corresponde
+String get _baseUrl =>
+    dotenv.env['API_BASE_URL'] ??
+    'http://10.0.2.2:8000'; // fallback para emulador Android
 
 class AuthApi {
   // Hace login, guarda tokens y role. Devuelve true si ok.
@@ -13,7 +16,9 @@ class AuthApi {
       final headers = {'Content-Type': 'application/json'};
       final body = jsonEncode({'username': username, 'password': password});
 
-      final resp = await http.post(url, headers: headers, body: body);
+      final resp = await http
+          .post(url, headers: headers, body: body)
+          .timeout(const Duration(seconds: 10));
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
         final data = jsonDecode(resp.body);
         final access = data['access'] as String?;
@@ -36,10 +41,27 @@ class AuthApi {
 
   // Borra tokens (logout)
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('access_token');
-    await prefs.remove('refresh_token');
-    await prefs.remove('role');
+    try {
+      final url = Uri.parse('$_baseUrl/api/auth/logout/');
+      final headers = await getAuthHeaders();
+      final prefs = await SharedPreferences.getInstance();
+      final refresh = prefs.getString('refresh_token');
+      final resp = await http
+          .post(url, headers: headers, body: jsonEncode({'refresh': refresh}))
+          .timeout(const Duration(seconds: 10));
+      print('AuthApi.logout response: ${resp.body}');
+      await prefs.remove('access_token');
+      await prefs.remove('refresh_token');
+      await prefs.remove('role');
+    } catch (e) {
+      print('AuthApi.logout error: $e');
+    } finally {
+      // Asegura que los tokens se borren aunque falle la petición
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('access_token');
+      await prefs.remove('refresh_token');
+      await prefs.remove('role');
+    }
   }
 
   // Devuelve headers con Authorization si hay access token guardado

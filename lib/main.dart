@@ -2,10 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_conductor/pages/login_page.dart';
 import 'package:flutter_conductor/pages/map_page.dart';
 import 'package:flutter_conductor/pages/history_page.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- añadido
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); // <- obligatorio antes de usar plugins
-  // cualquier inicialización asíncrona aquí si hace falta
+
+  // Cargar .env antes de usar AuthApi o cualquier código que lea dotenv.env
+  try {
+    await dotenv.load(fileName: ".env");
+    print('dotenv loaded: API_BASE_URL=${dotenv.env['API_BASE_URL']}');
+  } catch (e) {
+    print('dotenv load failed: $e');
+  }
+
   runApp(const MyApp());
 }
 
