@@ -1,35 +1,63 @@
 import 'package:flutter/material.dart';
+import '../api/conductor.dart';
+import '../models/service.dart';
+import 'service_detail_page.dart'; // <-- import añadido
 
-class HistoryPage extends StatelessWidget {
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
-  final List<Map<String, String>> _mockHistory = const [
-    {'title': 'Viaje al centro', 'subtitle': '12/09/2025 — 09:30'},
-    {'title': 'Entrega paquete', 'subtitle': '11/09/2025 — 16:10'},
-    {'title': 'Recogida cliente', 'subtitle': '08/09/2025 — 19:45'},
-  ];
+  @override
+  State<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends State<HistoryPage> {
+  late Future<List<Service>> _futureServices;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureServices = ConductorApi.fetchServices();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial'),
-        centerTitle: true,
-      ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: _mockHistory.length,
-        separatorBuilder: (_, __) => const Divider(),
-        itemBuilder: (context, index) {
-          final item = _mockHistory[index];
-          return ListTile(
-            leading: const Icon(Icons.history),
-            title: Text(item['title']!),
-            subtitle: Text(item['subtitle']!),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Detalle: ${item['title']}')),
+      appBar: AppBar(title: const Text('Historial'), centerTitle: true),
+      body: FutureBuilder<List<Service>>(
+        future: _futureServices,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          final services = snapshot.data ?? [];
+          if (services.isEmpty) {
+            return const Center(child: Text('No hay registros'));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: services.length,
+            separatorBuilder: (_, __) => const Divider(),
+            itemBuilder: (context, index) {
+              final s = services[index];
+              return ListTile(
+                leading: const Icon(Icons.history),
+                title: Text('${s.clienteNombre} — ${s.estado}'),
+                subtitle: Text(
+                  '${s.origenDireccion}\n→ ${s.destinoDireccion}\n${s.fechaSolicitud}',
+                ),
+                isThreeLine: true,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ServiceDetailPage(service: s),
+                    ),
+                  );
+                },
               );
             },
           );
