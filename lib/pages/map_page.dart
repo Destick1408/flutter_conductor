@@ -5,6 +5,7 @@ import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_conductor/widgets/drawer_profile.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -125,6 +126,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
+      drawer: const DrawerProfile(),
       body: FlutterMap(
         mapController: _mapController,
         options: MapOptions(

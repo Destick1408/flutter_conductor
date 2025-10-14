@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- añadido
 import 'dart:async';
 
-String get _baseUrl =>
+String get baseUrl =>
     dotenv.env['API_BASE_URL'] ??
     'http://10.0.2.2:8000'; // fallback para emulador Android
 
@@ -12,7 +12,7 @@ class AuthApi {
   // Hace login, guarda tokens y role. Devuelve true si ok.
   static Future<bool> login(String username, String password) async {
     try {
-      final url = Uri.parse('$_baseUrl/api/auth/login/');
+      final url = Uri.parse('$baseUrl/api/auth/login/');
       final headers = {'Content-Type': 'application/json'};
       final body = jsonEncode({'username': username, 'password': password});
 
@@ -42,7 +42,7 @@ class AuthApi {
   // Borra tokens (logout)
   static Future<void> logout() async {
     try {
-      final url = Uri.parse('$_baseUrl/api/auth/logout/');
+      final url = Uri.parse('$baseUrl/api/auth/logout/');
       final headers = await getAuthHeaders();
       final prefs = await SharedPreferences.getInstance();
       final refresh = prefs.getString('refresh_token');

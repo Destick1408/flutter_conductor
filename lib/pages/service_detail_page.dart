@@ -59,6 +59,10 @@ class ServiceDetailPage extends StatelessWidget {
                 'Lat: ${_safe(raw, 'origen.latitud')}  Lng: ${_safe(raw, 'origen.longitud')}',
               ),
             ]),
+            _section('Cliente', [
+              Text('nombre: ${_safe(raw, 'cliente.nombre')}'),
+              Text('telefono: ${_safe(raw, 'cliente.telefono')}'),
+            ]),
             _section('Destino', [
               Text('Dirección: ${service.destinoDireccion}'),
               Text(
@@ -72,9 +76,12 @@ class ServiceDetailPage extends StatelessWidget {
               Text('Licencia: ${_safe(raw, 'conductor.licencia')}'),
               Text('Role: ${_safe(raw, 'conductor.usuario.role')}'),
             ]),
-            _section('Vehículo / Operador', [
-              Text('Vehículo: ${_safe(raw, 'vehiculo.placa')}'),
-              Text('Operador: ${_safe(raw, 'operador.username')}'),
+            _section('Vehículo', [
+              Text('unidad: ${_safe(raw, 'vehiculo.unidad')}'),
+              Text('placa: ${_safe(raw, 'vehiculo.placa')}'),
+              Text(
+                'marca: ${_safe(raw, 'vehiculo.marca')} ${_safe(raw, 'vehiculo.modelo')}',
+              ),
             ]),
             _section('Observaciones', [Text(_safe(raw, 'observaciones'))]),
             const SizedBox(height: 20),
