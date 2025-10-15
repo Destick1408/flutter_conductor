@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/auth.dart';
+import 'package:flutter_conductor/api/perfil.dart';
+import 'package:flutter_conductor/models/user.dart';
 import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -22,17 +24,26 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   StreamSubscription<Position>? _positionStream;
   int _lastUpdateMillis = 0;
   static const int _minUpdateIntervalMs = 100;
+  User? _user;
 
   @override
   void initState() {
     super.initState();
     _startLocationUpdates();
+    _loadProfile();
   }
 
   @override
   void dispose() {
     _positionStream?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    _user = await PerfilApi.fetchUserProfile();
+    print('Usuario cargado: ${_user?.username}');
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _startLocationUpdates() async {
@@ -126,7 +137,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
-      drawer: const DrawerProfile(),
+      drawer: DrawerProfile(user: _user),
       body: FlutterMap(
         mapController: _mapController,
         options: MapOptions(
