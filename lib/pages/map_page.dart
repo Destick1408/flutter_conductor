@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/auth.dart';
-import 'package:flutter_conductor/api/location.dart';
+import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/api/perfil.dart';
 import 'package:flutter_conductor/models/user.dart';
 import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
@@ -23,21 +23,18 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   final double _zoom = 16.0;
   LatLng? _currentPosition;
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<dynamic>? _webSocketSubscription;
   int _lastUpdateMillis = 0;
   static const int _minUpdateIntervalMs = 100;
   User? _user;
-  Timer? _locationTimer;
-  bool _sending = false;
-
-  bool _stopping = false; // evita nuevos envíos cuando hacemos logout
-  bool _loggedOut = false; // true después de logout exitoso
+  bool _isConnected = false;
 
   @override
   void initState() {
     super.initState();
-    _startLocationUpdates();
     _loadProfile();
-    _startPeriodicSender();
+    _connectWebSocket();
+    _startLocationUpdates();
   }
 
   Future<void> _loadProfile() async {
@@ -47,37 +44,33 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     setState(() {});
   }
 
-  void _startPeriodicSender() {
-    _locationTimer?.cancel();
+  // Conectar al WebSocket
+  Future<void> _connectWebSocket() async {
+    try {
+      await WebSocketApi.connect('ws/conductor/');
 
-    Future<void> trySend() async {
-      if (_stopping) return; // no iniciar si estamos deteniendo
-      if (!mounted) return;
-      if (_currentPosition == null) return;
-      if (_sending) return; // ya hay un envío en curso
-      _sending = true;
-      try {
-        final lat = _currentPosition!.latitude.toString();
-        final lng = _currentPosition!.longitude.toString();
-        final ok = await LocationApi.updateLocation(
-          lastLatitud: lat,
-          lastLongitud: lng,
-          estado: 'disponible',
-        );
-        if (!ok) debugPrint('Location update failed');
-      } catch (e) {
-        debugPrint('Error sending location: $e');
-      } finally {
-        _sending = false;
-      }
+      // Escuchar mensajes del servidor
+      _webSocketSubscription = WebSocketApi.stream?.listen(
+        (message) {
+          debugPrint('Mensaje del servidor: $message');
+          // Aquí puedes procesar mensajes del servidor si es necesario
+        },
+        onError: (error) {
+          debugPrint('Error en WebSocket: $error');
+          setState(() => _isConnected = false);
+        },
+        onDone: () {
+          debugPrint('WebSocket desconectado');
+          setState(() => _isConnected = false);
+        },
+      );
+
+      setState(() => _isConnected = true);
+      debugPrint('WebSocket conectado exitosamente');
+    } catch (e) {
+      debugPrint('Error al conectar WebSocket: $e');
+      setState(() => _isConnected = false);
     }
-
-    // enviar inmediatamente y luego cada 5s
-    trySend();
-    _locationTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => trySend(),
-    );
   }
 
   Future<void> _startLocationUpdates() async {
@@ -96,7 +89,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           Geolocator.getPositionStream(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 1,
+              distanceFilter: 5, // Enviar cada 5 metros de cambio
             ),
           ).listen((Position pos) {
             if (!mounted) return;
@@ -110,9 +103,14 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
               _currentPosition = newLatLng;
             });
             _mapController.move(newLatLng, _zoom);
+
+            // Enviar ubicación por WebSocket en tiempo real
+            if (_isConnected) {
+              WebSocketApi.enviarUbicacion(pos, 'disponible');
+            }
           });
     } catch (e) {
-      // manejar error si hace falta
+      debugPrint('Error al iniciar actualizaciones de ubicación: $e');
     }
   }
 
@@ -139,6 +137,11 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         _currentPosition = newLatLng;
       });
       _mapController.move(newLatLng, _zoom);
+
+      // Enviar ubicación actual por WebSocket
+      if (_isConnected) {
+        WebSocketApi.enviarUbicacion(pos, 'disponible');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -149,41 +152,30 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   Future<void> _sendDisconnect() async {
     try {
-      final lat = _currentPosition?.latitude.toString() ?? '';
-      final lng = _currentPosition?.longitude.toString() ?? '';
-      await LocationApi.updateLocation(
-        lastLatitud: lat,
-        lastLongitud: lng,
-        estado: 'desconectado',
-      );
+      if (_currentPosition != null && _isConnected) {
+        final pos = await Geolocator.getCurrentPosition();
+        WebSocketApi.enviarUbicacion(pos, 'desconectado');
+
+        // Esperar un momento para que el mensaje se envíe
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
     } catch (e) {
-      debugPrint('Error sending disconnect: $e');
+      debugPrint('Error al enviar desconexión: $e');
     }
   }
 
   Future<void> _onLogoutPressed() async {
     try {
-      // evitar nuevos envíos
-      _stopping = true;
-
-      // cancelar periodic timer y stream (no perder la espera de un envío en curso)
-      _locationTimer?.cancel();
-      await _positionStream?.cancel();
-
-      // esperar a que cualquier envío en vuelo termine (timeout por seguridad)
-      final deadline = DateTime.now().add(const Duration(seconds: 2));
-      while (_sending && DateTime.now().isBefore(deadline)) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-
-      // enviar desconexión (usa el token todavía hasta este punto)
+      // Enviar estado de desconexión
       await _sendDisconnect();
 
-      // ahora sí limpiar sesión en backend/local y marcar que cerramos
+      // Cerrar WebSocket
+      WebSocketApi.close();
+
+      // Cerrar sesión
       await AuthApi.logout();
-      _loggedOut = true;
     } catch (e) {
-      debugPrint('Logout error: $e');
+      debugPrint('Error en logout: $e');
     }
 
     if (!mounted) return;
@@ -192,12 +184,10 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
-    // Si ya hicimos logout, no intentamos enviar desconexión otra vez
-    if (!_loggedOut) {
-      _sendDisconnect(); // fire-and-forget como mejor esfuerzo
-    }
+    _sendDisconnect();
     _positionStream?.cancel();
-    _locationTimer?.cancel();
+    _webSocketSubscription?.cancel();
+    WebSocketApi.close();
     super.dispose();
   }
 
@@ -205,7 +195,21 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ivancar'),
+        title: Row(
+          children: [
+            const Text('Ivancar'),
+            const SizedBox(width: 8),
+            // Indicador de conexión WebSocket
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isConnected ? Colors.green : Colors.red,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             onPressed: _onLogoutPressed,
