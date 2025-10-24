@@ -12,70 +12,92 @@ class WebSocketApi {
   static WebSocketChannel? _channel;
   static StreamController<dynamic>? _streamController;
 
-  // Conectar al WebSocket con autenticación
-  static Future<WebSocketChannel> connect(String endpoint) async {
-    final token = await AuthApi.getAccessToken();
+  // Conectar al WebSocket
+  static Future<bool> connect(String endpoint) async {
+    try {
+      final token = await AuthApi.getAccessToken();
 
-    if (token == null) {
-      throw Exception('No hay token de autenticación');
+      if (token == null) {
+        debugPrint('❌ No hay token de autenticación');
+        return false;
+      }
+
+      final url = Uri.parse('$_baseWsUrl/$endpoint?token=$token');
+      debugPrint('🔌 Conectando a: $url');
+
+      _channel = WebSocketChannel.connect(url);
+      _streamController = StreamController<dynamic>.broadcast();
+
+      _channel?.stream.listen(
+        (event) {
+          debugPrint('📩 Mensaje recibido: $event');
+
+          // Manejar ping/pong
+          try {
+            final data = jsonDecode(event);
+            if (data['type'] == 'ping') {
+              send({'type': 'pong'});
+              debugPrint('🏓 Pong enviado');
+              return;
+            }
+          } catch (_) {}
+
+          _streamController?.add(event);
+        },
+        onError: (error) {
+          debugPrint('⚠️ WebSocket error: $error');
+          _streamController?.addError(error);
+        },
+        onDone: () {
+          debugPrint('🔌 WebSocket cerrado');
+          _streamController?.close();
+          _channel = null;
+        },
+      );
+
+      debugPrint('✅ Conectado exitosamente');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error al conectar: $e');
+      return false;
     }
-
-    // Construir URL con el token como parámetro de query
-    final url = Uri.parse('$_baseWsUrl/$endpoint?token=$token');
-
-    _channel = WebSocketChannel.connect(url);
-    _streamController = StreamController<dynamic>.broadcast();
-
-    _channel?.stream.listen(
-      (event) {
-        debugPrint('WebSocket message received: $event');
-        _streamController?.add(event);
-      },
-      onError: (error) {
-        debugPrint('WebSocket error: $error');
-        _streamController?.addError(error);
-      },
-      onDone: () {
-        debugPrint('WebSocket connection closed');
-        _streamController?.close();
-        _channel = null;
-      },
-    );
-
-    return _channel!;
   }
 
-  // Enviar mensaje (convertir a JSON)
-  static void send(Map<String, dynamic> message) {
-    if (_channel != null) {
-      _channel?.sink.add(jsonEncode(message));
-    } else {
-      debugPrint('WebSocket no está conectado');
-    }
-  }
-
-  // Método de instancia corregido a estático
-  static void enviarUbicacion(Position position, String estado) {
-    final mensaje = {
-      'type': 'actualizar_ubicacion',
-      'latitud': position.latitude,
-      'longitud': position.longitude,
-      'estado': estado,
-    };
-    send(mensaje);
-  }
-
-  // Escuchar mensajes desde el StreamController
-  static Stream<dynamic>? get stream => _streamController?.stream;
-
-  // Cerrar conexión
-  static void close() {
+  // Desconectar manualmente
+  static void disconnect() {
+    debugPrint('🛑 Desconectando WebSocket');
     _channel?.sink.close();
     _streamController?.close();
     _channel = null;
     _streamController = null;
   }
 
+  // Enviar mensaje
+  static void send(Map<String, dynamic> message) {
+    if (_channel != null) {
+      _channel?.sink.add(jsonEncode(message));
+      debugPrint('📤 Mensaje enviado: ${jsonEncode(message)}');
+    } else {
+      debugPrint('⚠️ WebSocket no está conectado');
+    }
+  }
+
+  // Enviar ubicación
+  static void enviarUbicacion(Position position) {
+    final mensaje = {
+      'type': 'actualizar_ubicacion',
+      'latitud': position.latitude,
+      'longitud': position.longitude,
+    };
+    send(mensaje);
+  }
+
+  // Stream de mensajes
+  static Stream<dynamic>? get stream => _streamController?.stream;
+
   // Verificar si está conectado
   static bool get isConnected => _channel != null;
+
+  // Cerrar (alias de disconnect)
+  static void close() => disconnect();
 }

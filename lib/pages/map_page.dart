@@ -106,7 +106,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
             // Enviar ubicación por WebSocket en tiempo real
             if (_isConnected) {
-              WebSocketApi.enviarUbicacion(pos, 'disponible');
+              WebSocketApi.enviarUbicacion(pos);
             }
           });
     } catch (e) {
@@ -140,7 +140,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
       // Enviar ubicación actual por WebSocket
       if (_isConnected) {
-        WebSocketApi.enviarUbicacion(pos, 'disponible');
+        WebSocketApi.enviarUbicacion(pos);
       }
     } catch (e) {
       if (!mounted) return;
@@ -154,7 +154,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     try {
       if (_currentPosition != null && _isConnected) {
         final pos = await Geolocator.getCurrentPosition();
-        WebSocketApi.enviarUbicacion(pos, 'desconectado');
+        WebSocketApi.enviarUbicacion(pos);
 
         // Esperar un momento para que el mensaje se envíe
         await Future.delayed(const Duration(milliseconds: 500));
