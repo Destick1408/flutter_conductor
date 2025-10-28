@@ -52,15 +52,12 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
       // Escuchar mensajes del servidor
       _webSocketSubscription = WebSocketApi.stream?.listen(
         (message) {
-          debugPrint('Mensaje del servidor: $message');
           // Aquí puedes procesar mensajes del servidor si es necesario
         },
         onError: (error) {
-          debugPrint('Error en WebSocket: $error');
           setState(() => _isConnected = false);
         },
         onDone: () {
-          debugPrint('WebSocket desconectado');
           setState(() => _isConnected = false);
         },
       );

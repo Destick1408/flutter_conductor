@@ -10,9 +10,10 @@ Future<void> main() async {
   // Cargar .env antes de usar AuthApi o cualquier código que lea dotenv.env
   try {
     await dotenv.load(fileName: ".env");
-    print('dotenv loaded: API_BASE_URL=${dotenv.env['API_BASE_URL']}');
+    debugPrint('dotenv loaded: API_BASE_URL=${dotenv.env['API_BASE_URL']}');
+    debugPrint('dotenv loaded: WEBSOCKET_URL=${dotenv.env['WEBSOCKET_URL']}');
   } catch (e) {
-    print('dotenv load failed: $e');
+    debugPrint('dotenv load failed: $e');
   }
 
   runApp(const MyApp());

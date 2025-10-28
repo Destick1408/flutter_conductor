@@ -14,6 +14,11 @@ class WebSocketApi {
 
   // Conectar al WebSocket
   static Future<bool> connect(String endpoint) async {
+    if (_channel != null) {
+      debugPrint('⚠️ Ya está conectado al WebSocket');
+      return true; // aqui se devuelve true porque ya está conectado
+    }
+    // aqui cargo el token desde las shared preferences
     try {
       final token = await AuthApi.getAccessToken();
 
@@ -21,11 +26,18 @@ class WebSocketApi {
         debugPrint('❌ No hay token de autenticación');
         return false;
       }
-
+      // aca contruyo la url completa
       final url = Uri.parse('$_baseWsUrl/$endpoint?token=$token');
       debugPrint('🔌 Conectando a: $url');
+      // aca me conecto al websocket
+      try {
+        _channel = WebSocketChannel.connect(url);
+        debugPrint('✅ Conectado exitosamente al websocket');
+      } catch (e) {
+        debugPrint('❌ Error al conectar: $e');
+        return false; // regreso false si da error porque no me pude conectar
+      }
 
-      _channel = WebSocketChannel.connect(url);
       _streamController = StreamController<dynamic>.broadcast();
 
       _channel?.stream.listen(
@@ -37,10 +49,12 @@ class WebSocketApi {
             final data = jsonDecode(event);
             if (data['type'] == 'ping') {
               send({'type': 'pong'});
-              debugPrint('🏓 Pong enviado');
+              debugPrint('🏓 Pong enviado hora: ${DateTime.now()}');
               return;
             }
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('⚠️ Error al procesar ping/pong: $e');
+          }
 
           _streamController?.add(event);
         },
@@ -61,7 +75,7 @@ class WebSocketApi {
       debugPrint('❌ Error al conectar: $e');
       return false;
     }
-  }
+  } // funcion connect fin
 
   // Desconectar manualmente
   static void disconnect() {
@@ -89,7 +103,11 @@ class WebSocketApi {
       'latitud': position.latitude,
       'longitud': position.longitude,
     };
-    send(mensaje);
+    try {
+      send(mensaje);
+    } catch (e) {
+      debugPrint('❌ Error al enviar ubicación: $e');
+    }
   }
 
   // Stream de mensajes
