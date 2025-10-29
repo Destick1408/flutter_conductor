@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:geolocator/geolocator.dart';
 import '../api/auth.dart';
@@ -17,6 +18,13 @@ class WebSocketApi {
     if (_channel != null) {
       debugPrint('⚠️ Ya está conectado al WebSocket');
       return true; // aqui se devuelve true porque ya está conectado
+    }
+    // Activar WakeLock para mantener la conexión activa
+    try {
+      await WakelockPlus.enable();
+      debugPrint('🔓 Wakelock activado');
+    } catch (e) {
+      debugPrint('⚠️ Error al activar wakelock: $e');
     }
     // aqui cargo el token desde las shared preferences
     try {
@@ -84,6 +92,14 @@ class WebSocketApi {
     _streamController?.close();
     _channel = null;
     _streamController = null;
+    // Desactivar WakeLock
+    WakelockPlus.disable()
+        .then((_) {
+          debugPrint('🔒 Wakelock desactivado');
+        })
+        .catchError((e) {
+          debugPrint('⚠️ Error al desactivar wakelock: $e');
+        });
   }
 
   // Enviar mensaje

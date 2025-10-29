@@ -42,6 +42,8 @@ dependencies:
   flutter_secure_storage: ^8.0.0
   shared_preferences: ^2.0.0
   flutter_dotenv: ^5.0.0
+  wakelock_plus:
+  permission_handler:
 
 dev_dependencies:
   flutter_test:
