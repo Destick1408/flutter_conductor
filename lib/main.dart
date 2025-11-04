@@ -30,14 +30,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        textTheme: const TextTheme(
-          headlineMedium: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-          bodyMedium: TextStyle(fontSize: 14, color: Colors.black87),
-        ),
+        textTheme: const TextTheme(),
       ),
       // Rutas nombradas; la app inicia en el login
       initialRoute: '/login',

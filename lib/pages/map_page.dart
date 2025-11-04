@@ -26,9 +26,13 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<dynamic>? _webSocketSubscription;
   int _lastUpdateMillis = 0;
-  static const int _minUpdateIntervalMs = 100;
+  // Aumentado el intervalo mínimo para reducir frecuencia de rebuilds
+  static const int _minUpdateIntervalMs = 300;
   User? _user;
   bool _isConnected = false;
+
+  // Nuevo: notifier para la posición (evita setState frecuente)
+  final ValueNotifier<LatLng?> _positionNotifier = ValueNotifier<LatLng?>(null);
 
   @override
   void initState() {
@@ -120,10 +124,15 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             _lastUpdateMillis = now;
 
             final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
-            setState(() {
-              _currentPosition = newLatLng;
-            });
-            _mapController.move(newLatLng, _zoom);
+
+            // Evitar setState: actualizar variables y notifier
+            _currentPosition = newLatLng;
+            _positionNotifier.value = newLatLng;
+
+            // Mover el mapa directamente; no requiere setState
+            try {
+              _mapController.move(newLatLng, _zoom);
+            } catch (_) {}
 
             // Enviar ubicación por WebSocket en tiempo real
             if (_isConnected) {
@@ -138,12 +147,15 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Future<void> _locateOnce() async {
     try {
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+        ),
       );
       final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
-      setState(() {
-        _currentPosition = newLatLng;
-      });
+
+      // No usamos setState para evitar rebuilds innecesarios
+      _currentPosition = newLatLng;
+      _positionNotifier.value = newLatLng;
       _mapController.move(newLatLng, _zoom);
 
       // Enviar ubicación actual por WebSocket
@@ -160,12 +172,25 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   Future<void> _sendDisconnect() async {
     try {
+      // Evitar llamar a getCurrentPosition en dispose; usar última posición conocida
       if (_currentPosition != null && _isConnected) {
-        final pos = await Geolocator.getCurrentPosition();
+        // Construimos un Position rápido con los valores mínimos necesarios
+        final pos = Position(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+          altitudeAccuracy: 0.0,
+          headingAccuracy: 0.0,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
         WebSocketApi.enviarUbicacion(pos);
 
         // Esperar un momento para que el mensaje se envíe
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 300));
       }
     } catch (e) {
       debugPrint('Error al enviar desconexión: $e');
@@ -192,9 +217,11 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    // No await aquí (dispose se ejecuta rápido); _sendDisconnect ya usa la última posición
     _sendDisconnect();
     _positionStream?.cancel();
     _webSocketSubscription?.cancel();
+    _positionNotifier.dispose();
     WebSocketApi.close();
     super.dispose();
   }
@@ -231,30 +258,38 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              center: _currentPosition ?? _center,
-              zoom: _zoom,
-              interactiveFlags: InteractiveFlag.all,
+              initialCenter: _currentPosition ?? _center,
+              initialZoom: _zoom,
+              interactionOptions:
+                  const InteractionOptions(), // reemplaza interactiveFlags
+              keepAlive: true,
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                subdomains: const ['a', 'b', 'c'],
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.flutter_conductor',
               ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _currentPosition ?? _center,
-                    width: 48,
-                    height: 48,
-                    builder: (ctx) => const Icon(
-                      Icons.location_on,
-                      color: Colors.red,
-                      size: 40,
-                    ),
-                  ),
-                ],
+
+              // Reemplazado MarkerLayer por ValueListenableBuilder para evitar rebuild del Scaffold completo
+              ValueListenableBuilder<LatLng?>(
+                valueListenable: _positionNotifier,
+                builder: (context, pos, _) {
+                  final markerPoint = pos ?? _currentPosition ?? _center;
+                  return MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: markerPoint,
+                        width: 48,
+                        height: 48,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
