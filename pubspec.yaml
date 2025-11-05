@@ -44,6 +44,7 @@ dependencies:
   flutter_dotenv: ^6.0.0
   wakelock_plus:
   permission_handler:
+  provider: 
 
 dev_dependencies:
   flutter_test:
