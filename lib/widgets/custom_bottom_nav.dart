@@ -15,11 +15,12 @@ class SimpleBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BottomAppBar(
+      shape: CircularNotchedRectangle(),
       color: backgroundColor,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
               icon: const Icon(Icons.history),
@@ -33,6 +34,7 @@ class SimpleBottomNav extends StatelessWidget {
               onPressed: () {},
               tooltip: 'Mensaje',
             ),
+            SizedBox(width: 48), // Espacio para el botón flotante
             IconButton(
               icon: const Icon(Icons.calendar_today),
               color: unselectedColor,

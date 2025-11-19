@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/auth.dart';
-import 'package:flutter_conductor/api/location.dart';
+import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/api/perfil.dart';
 import 'package:flutter_conductor/models/user.dart';
+import 'package:flutter_conductor/services/permission_service.dart';
 import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -23,21 +24,49 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   final double _zoom = 16.0;
   LatLng? _currentPosition;
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<dynamic>? _webSocketSubscription;
   int _lastUpdateMillis = 0;
-  static const int _minUpdateIntervalMs = 100;
+  // Aumentado el intervalo mínimo para reducir frecuencia de rebuilds
+  static const int _minUpdateIntervalMs = 300;
   User? _user;
-  Timer? _locationTimer;
-  bool _sending = false;
+  bool _isConnected = false;
 
-  bool _stopping = false; // evita nuevos envíos cuando hacemos logout
-  bool _loggedOut = false; // true después de logout exitoso
+  // Nuevo: notifier para la posición (evita setState frecuente)
+  final ValueNotifier<LatLng?> _positionNotifier = ValueNotifier<LatLng?>(null);
 
   @override
   void initState() {
     super.initState();
-    _startLocationUpdates();
-    _loadProfile();
-    _startPeriodicSender();
+    _initializeApp(); // 🔥 UN SOLO punto de entrada
+  }
+
+  // 🔥 NUEVO: Inicializar todo en el orden correcto
+  Future<void> _initializeApp() async {
+    // 1. Pedir permisos PRIMERO
+    final permissionsGranted = await PermissionService.requestAllPermissions();
+
+    if (!permissionsGranted) {
+      if (mounted) {
+        await PermissionService.showPermissionDeniedDialog(context);
+      }
+      return;
+    }
+
+    // 2. Mostrar estado de permisos
+    final status = await PermissionService.checkPermissionsStatus();
+    debugPrint('📊 Estado de permisos: $status');
+
+    // 3. Cargar perfil
+    await _loadProfile();
+
+    // 4. Conectar WebSocket
+    await _connectWebSocket();
+
+    // 5. Iniciar seguimiento de ubicación
+    await _startLocationUpdates();
+
+    // 6. Optimización de batería (opcional)
+    await PermissionService.requestBatteryOptimization();
   }
 
   Future<void> _loadProfile() async {
@@ -47,56 +76,45 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     setState(() {});
   }
 
-  void _startPeriodicSender() {
-    _locationTimer?.cancel();
+  // Conectar al WebSocket
+  Future<void> _connectWebSocket() async {
+    try {
+      await WebSocketApi.connect('ws/conductor/');
 
-    Future<void> trySend() async {
-      if (_stopping) return; // no iniciar si estamos deteniendo
+      // Escuchar mensajes del servidor
+      _webSocketSubscription = WebSocketApi.stream?.listen(
+        (message) {
+          // Aquí puedes procesar mensajes del servidor si es necesario
+        },
+        onError: (error) {
+          if (!mounted) return;
+          setState(() => _isConnected = false);
+        },
+        onDone: () {
+          if (!mounted) return;
+          setState(() => _isConnected = false);
+        },
+      );
+
       if (!mounted) return;
-      if (_currentPosition == null) return;
-      if (_sending) return; // ya hay un envío en curso
-      _sending = true;
-      try {
-        final lat = _currentPosition!.latitude.toString();
-        final lng = _currentPosition!.longitude.toString();
-        final ok = await LocationApi.updateLocation(
-          lastLatitud: lat,
-          lastLongitud: lng,
-          estado: 'disponible',
-        );
-        if (!ok) debugPrint('Location update failed');
-      } catch (e) {
-        debugPrint('Error sending location: $e');
-      } finally {
-        _sending = false;
-      }
+      setState(() => _isConnected = true);
+      debugPrint('WebSocket conectado exitosamente');
+    } catch (e) {
+      debugPrint('Error al conectar WebSocket: $e');
+      if (!mounted) return;
+      setState(() => _isConnected = false);
     }
-
-    // enviar inmediatamente y luego cada 5s
-    trySend();
-    _locationTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => trySend(),
-    );
   }
 
   Future<void> _startLocationUpdates() async {
     try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) {
-        return;
-      }
-
+      // Ya no necesitas pedir permisos aquí, ya se pidieron en _initializeApp
       await _positionStream?.cancel();
       _positionStream =
           Geolocator.getPositionStream(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 1,
+              distanceFilter: 5, // Enviar cada 5 metros de cambio
             ),
           ).listen((Position pos) {
             if (!mounted) return;
@@ -106,39 +124,44 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             _lastUpdateMillis = now;
 
             final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
-            setState(() {
-              _currentPosition = newLatLng;
-            });
-            _mapController.move(newLatLng, _zoom);
+
+            // Evitar setState: actualizar variables y notifier
+            _currentPosition = newLatLng;
+            _positionNotifier.value = newLatLng;
+
+            // Mover el mapa directamente; no requiere setState
+            try {
+              _mapController.move(newLatLng, _zoom);
+            } catch (_) {}
+
+            // Enviar ubicación por WebSocket en tiempo real
+            if (_isConnected) {
+              WebSocketApi.enviarUbicacion(pos);
+            }
           });
     } catch (e) {
-      // manejar error si hace falta
+      debugPrint('Error al iniciar actualizaciones de ubicación: $e');
     }
   }
 
   Future<void> _locateOnce() async {
     try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permiso de ubicación denegado')),
-        );
-        return;
-      }
-
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+        ),
       );
       final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
-      setState(() {
-        _currentPosition = newLatLng;
-      });
+
+      // No usamos setState para evitar rebuilds innecesarios
+      _currentPosition = newLatLng;
+      _positionNotifier.value = newLatLng;
       _mapController.move(newLatLng, _zoom);
+
+      // Enviar ubicación actual por WebSocket
+      if (_isConnected) {
+        WebSocketApi.enviarUbicacion(pos);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -149,41 +172,43 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   Future<void> _sendDisconnect() async {
     try {
-      final lat = _currentPosition?.latitude.toString() ?? '';
-      final lng = _currentPosition?.longitude.toString() ?? '';
-      await LocationApi.updateLocation(
-        lastLatitud: lat,
-        lastLongitud: lng,
-        estado: 'desconectado',
-      );
+      // Evitar llamar a getCurrentPosition en dispose; usar última posición conocida
+      if (_currentPosition != null && _isConnected) {
+        // Construimos un Position rápido con los valores mínimos necesarios
+        final pos = Position(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+          altitudeAccuracy: 0.0,
+          headingAccuracy: 0.0,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+        WebSocketApi.enviarUbicacion(pos);
+
+        // Esperar un momento para que el mensaje se envíe
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
     } catch (e) {
-      debugPrint('Error sending disconnect: $e');
+      debugPrint('Error al enviar desconexión: $e');
     }
   }
 
   Future<void> _onLogoutPressed() async {
     try {
-      // evitar nuevos envíos
-      _stopping = true;
-
-      // cancelar periodic timer y stream (no perder la espera de un envío en curso)
-      _locationTimer?.cancel();
-      await _positionStream?.cancel();
-
-      // esperar a que cualquier envío en vuelo termine (timeout por seguridad)
-      final deadline = DateTime.now().add(const Duration(seconds: 2));
-      while (_sending && DateTime.now().isBefore(deadline)) {
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-
-      // enviar desconexión (usa el token todavía hasta este punto)
+      // Enviar estado de desconexión
       await _sendDisconnect();
 
-      // ahora sí limpiar sesión en backend/local y marcar que cerramos
+      // Cerrar WebSocket
+      WebSocketApi.close();
+
+      // Cerrar sesión
       await AuthApi.logout();
-      _loggedOut = true;
     } catch (e) {
-      debugPrint('Logout error: $e');
+      debugPrint('Error en logout: $e');
     }
 
     if (!mounted) return;
@@ -192,12 +217,12 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
-    // Si ya hicimos logout, no intentamos enviar desconexión otra vez
-    if (!_loggedOut) {
-      _sendDisconnect(); // fire-and-forget como mejor esfuerzo
-    }
+    // No await aquí (dispose se ejecuta rápido); _sendDisconnect ya usa la última posición
+    _sendDisconnect();
     _positionStream?.cancel();
-    _locationTimer?.cancel();
+    _webSocketSubscription?.cancel();
+    _positionNotifier.dispose();
+    WebSocketApi.close();
     super.dispose();
   }
 
@@ -205,7 +230,21 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ivancar'),
+        title: Row(
+          children: [
+            const Text('Ivancar'),
+            const SizedBox(width: 8),
+            // Indicador de conexión WebSocket
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isConnected ? Colors.green : Colors.red,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             onPressed: _onLogoutPressed,
@@ -214,42 +253,73 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         ],
       ),
       drawer: DrawerProfile(user: _user),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          center: _currentPosition ?? _center,
-          zoom: _zoom,
-          interactiveFlags: InteractiveFlag.all,
-        ),
+      body: Stack(
         children: [
-          TileLayer(
-            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            subdomains: const ['a', 'b', 'c'],
-            userAgentPackageName: 'com.example.flutter_conductor',
-          ),
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: _currentPosition ?? _center,
-                width: 48,
-                height: 48,
-                builder: (ctx) =>
-                    const Icon(Icons.location_on, color: Colors.red, size: 40),
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentPosition ?? _center,
+              initialZoom: _zoom,
+              interactionOptions:
+                  const InteractionOptions(), // reemplaza interactiveFlags
+              keepAlive: true,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.flutter_conductor',
+              ),
+
+              // Reemplazado MarkerLayer por ValueListenableBuilder para evitar rebuild del Scaffold completo
+              ValueListenableBuilder<LatLng?>(
+                valueListenable: _positionNotifier,
+                builder: (context, pos, _) {
+                  final markerPoint = pos ?? _currentPosition ?? _center;
+                  return MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: markerPoint,
+                        width: 48,
+                        height: 48,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 40,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
-        ],
-      ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton(
-            heroTag: 'locate_me',
-            onPressed: _locateOnce,
-            child: const Icon(Icons.my_location),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'locate_me',
+                  onPressed: _locateOnce,
+                  child: const Icon(Icons.my_location),
+                ),
+              ],
+            ),
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.large(
+        shape: const CircleBorder(),
+        backgroundColor: Colors.lightGreen,
+        heroTag: 'estado_laboral',
+        onPressed: () {},
+        child: Text(
+          'conectado'.toUpperCase(),
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: const SimpleBottomNav(),
     );
   }

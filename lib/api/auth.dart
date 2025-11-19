@@ -18,7 +18,7 @@ class AuthApi {
 
       final resp = await http
           .post(url, headers: headers, body: body)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 5));
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
         final data = jsonDecode(resp.body);
         final access = data['access'] as String?;
@@ -48,7 +48,7 @@ class AuthApi {
       final refresh = prefs.getString('refresh_token');
       final resp = await http
           .post(url, headers: headers, body: jsonEncode({'refresh': refresh}))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 5));
       print('AuthApi.logout response: ${resp.body}');
       await prefs.remove('access_token');
       await prefs.remove('refresh_token');
