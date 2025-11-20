@@ -21,4 +21,19 @@ class ConductorApi {
       throw Exception('Error ${resp.statusCode}: ${resp.body}');
     }
   }
+
+  static Future<String> cambiarEstadoLaboral(String estado) async {
+    final url = Uri.parse('$_baseUrl/api/conductores/cambiar-estado/');
+    final headers = await AuthApi.getAuthHeaders();
+    final resp = await http
+        .patch(url, headers: headers, body: jsonEncode({'estado': estado}))
+        .timeout(const Duration(seconds: 10));
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      return body['estado'] as String? ?? estado;
+    } else {
+      throw Exception('Error ${resp.statusCode}: ${resp.body}');
+    }
+  }
 }

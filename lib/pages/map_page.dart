@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/auth.dart';
+import 'package:flutter_conductor/api/conductor.dart';
 import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/api/perfil.dart';
 import 'package:flutter_conductor/models/user.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_conductor/widgets/drawer_profile.dart';
+import 'package:flutter_conductor/widgets/working_status_button.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -30,6 +32,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   static const int _minUpdateIntervalMs = 300;
   User? _user;
   bool _isConnected = false;
+  String estadoLaboral = 'disponible';
 
   // Nuevo: notifier para la posición (evita setState frecuente)
   final ValueNotifier<LatLng?> _positionNotifier = ValueNotifier<LatLng?>(null);
@@ -215,6 +218,26 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
+  Future<void> _toggleEstadoLaboral() async {
+    final nuevoEstado = estadoLaboral.toLowerCase() == 'disponible'
+        ? 'ocupado'
+        : 'disponible';
+    try {
+      final estadoBackend = await ConductorApi.cambiarEstadoLaboral(
+        nuevoEstado,
+      );
+      if (!mounted) return;
+      setState(() {
+        estadoLaboral = estadoBackend;
+      });
+      if (!mounted) return;
+      debugPrint('Estado laboral cambiado a: $estadoBackend');
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint('Error al cambiar estado laboral: $e');
+    }
+  }
+
   @override
   void dispose() {
     // No await aquí (dispose se ejecuta rápido); _sendDisconnect ya usa la última posición
@@ -309,15 +332,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.large(
-        shape: const CircleBorder(),
-        backgroundColor: Colors.lightGreen,
-        heroTag: 'estado_laboral',
-        onPressed: () {},
-        child: Text(
-          'conectado'.toUpperCase(),
-          style: const TextStyle(fontSize: 16),
-        ),
+      floatingActionButton: WorkingStatusButton(
+        estadoLaboral: estadoLaboral,
+        onToggle: _toggleEstadoLaboral,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: const SimpleBottomNav(),
