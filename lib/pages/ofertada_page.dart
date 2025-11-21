@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../api/ofertas_api.dart';
 import '../models/oferta_servicio.dart';
+import '../services/current_service_session.dart';
 
 class OfertadaPage extends StatefulWidget {
   const OfertadaPage({super.key});
@@ -17,6 +18,7 @@ class _OfertadaPageState extends State<OfertadaPage> {
   bool _isLoading = false;
   String? _error;
   Position? _currentPosition;
+  int? _acceptingId;
 
   @override
   void initState() {
@@ -44,6 +46,23 @@ class _OfertadaPageState extends State<OfertadaPage> {
       setState(() => _error = 'Error al cargar ofertas: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _acceptOferta(OfertaServicio oferta) async {
+    setState(() => _acceptingId = oferta.id);
+    try {
+      final accepted = await _api.aceptarOferta(oferta.id);
+      if (!mounted) return;
+      CurrentServiceSession.instance.setService(accepted);
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo aceptar la oferta: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _acceptingId = null);
     }
   }
 
@@ -126,6 +145,14 @@ class _OfertadaPageState extends State<OfertadaPage> {
           leading: const Icon(Icons.local_offer),
           title: Text(oferta.origenDireccion),
           subtitle: Text('Tipo: ${oferta.tipo} • Distancia: $distanceText'),
+          trailing: _acceptingId == oferta.id
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+          onTap: _acceptingId == null ? () => _acceptOferta(oferta) : null,
         );
       },
     );
