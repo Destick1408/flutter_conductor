@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../api/auth.dart';
+import '../api/chat_api.dart';
+import '../pages/chat_page.dart';
+import '../services/chat_ws_service.dart';
+
 class SimpleBottomNav extends StatelessWidget {
   final Color backgroundColor;
   final Color selectedColor;
@@ -31,7 +36,31 @@ class SimpleBottomNav extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.message),
               color: unselectedColor,
-              onPressed: () {},
+              onPressed: () async {
+                final token = AuthApi.accessToken ?? await AuthApi.getAccessToken();
+                final userId = AuthApi.currentUserId ?? await AuthApi.getCurrentUserId();
+
+                if (token == null || token.isEmpty || userId == null) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Inicia sesión para abrir el chat')),
+                    );
+                  }
+                  return;
+                }
+
+                final chatApi = ChatApi(conductorId: userId, token: token);
+                final chatWs =
+                    ChatWsService.forConductor(conductorId: userId, token: token);
+
+                if (context.mounted) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(chatApi: chatApi, chatWs: chatWs),
+                    ),
+                  );
+                }
+              },
               tooltip: 'Mensaje',
             ),
             SizedBox(width: 48), // Espacio para el botón flotante
