@@ -57,7 +57,7 @@ class ChatWsService {
           for (final item in messages) {
             if (item is Map<String, dynamic>) {
               _messageController.add(
-                ChatMessage.fromJson(item, conductorId: conductorId),
+                ChatMessage.fromJson(item, userId: conductorId),
               );
             }
           }
@@ -66,7 +66,7 @@ class ChatWsService {
         final payload = decoded['message'] ?? decoded;
         if (payload is Map<String, dynamic>) {
           _messageController.add(
-            ChatMessage.fromJson(payload, conductorId: conductorId),
+            ChatMessage.fromJson(payload, userId: conductorId),
           );
         }
       }

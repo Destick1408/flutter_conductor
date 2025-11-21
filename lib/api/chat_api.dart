@@ -22,7 +22,7 @@ class ChatApi {
     final list = _extractMessageList(data);
     return list
         .whereType<Map<String, dynamic>>()
-        .map((e) => ChatMessage.fromJson(e, conductorId: conductorId))
+        .map((e) => ChatMessage.fromJson(e, userId: conductorId))
         .toList();
   }
 
@@ -42,7 +42,7 @@ class ChatApi {
     final data = jsonDecode(resp.body);
     // La vista devuelve el mensaje serializado con ChatMessageSerializer
     if (data is Map<String, dynamic>) {
-      return ChatMessage.fromJson(data, conductorId: conductorId);
+      return ChatMessage.fromJson(data, userId: conductorId);
     }
 
     return ChatMessage(

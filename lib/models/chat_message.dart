@@ -16,11 +16,34 @@ class ChatMessage {
     this.isMine = false,
   });
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json, {required int conductorId}) {
-    final rawSender = json['emisor_id'] ?? json['sender_id'] ?? json['user_id'] ?? json['user'];
-    final sender = rawSender is int ? rawSender : int.tryParse(rawSender?.toString() ?? '');
-    final message = json['mensaje'] ?? json['contenido'] ?? json['content'] ?? json['message'] ?? '';
-    final created = json['creado'] ?? json['created_at'] ?? json['timestamp'] ?? json['fecha'];
+  factory ChatMessage.fromJson(Map<String, dynamic> json, {required int userId}) {
+    final sender = json['sender'];
+    int? senderId;
+
+    if (sender is Map<String, dynamic>) {
+      senderId = sender['id'] is int
+          ? sender['id'] as int
+          : int.tryParse(sender['id']?.toString() ?? '');
+    } else if (json['sender_id'] is int) {
+      senderId = json['sender_id'] as int;
+    } else if (json['sender_id'] is String) {
+      senderId = int.tryParse(json['sender_id'] as String);
+    }
+
+    if (senderId == null) {
+      final rawSender = json['emisor_id'] ?? json['user_id'] ?? json['user'];
+      senderId = rawSender is int ? rawSender : int.tryParse(rawSender?.toString() ?? '');
+    }
+
+    final bool isMine = senderId != null && senderId == userId;
+    final message = json['mensaje'] ??
+        json['contenido'] ??
+        json['content'] ??
+        json['message'] ??
+        json['text'] ??
+        '';
+    final created =
+        json['timestamp'] ?? json['created_at'] ?? json['creado'] ?? json['fecha'];
     DateTime? parsedDate;
     if (created is String) {
       parsedDate = DateTime.tryParse(created);
@@ -28,10 +51,10 @@ class ChatMessage {
 
     return ChatMessage(
       id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? ''),
-      senderId: sender,
+      senderId: senderId,
       content: message.toString(),
       createdAt: parsedDate,
-      isMine: sender != null && sender == conductorId,
+      isMine: isMine,
     );
   }
 
