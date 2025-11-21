@@ -4,6 +4,7 @@ import '../api/auth.dart';
 import '../api/chat_api.dart';
 import '../pages/chat_page.dart';
 import '../services/chat_ws_service.dart';
+import '../pages/ofertada_page.dart';
 
 class SimpleBottomNav extends StatelessWidget {
   final Color backgroundColor;
@@ -73,7 +74,13 @@ class SimpleBottomNav extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.local_offer),
               color: unselectedColor,
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const OfertadaPage(),
+                  ),
+                );
+              },
               tooltip: 'Ofertas',
             ),
           ],
