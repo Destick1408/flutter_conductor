@@ -53,8 +53,9 @@ class _OfertadaPageState extends State<OfertadaPage> {
     setState(() => _acceptingId = oferta.id);
     try {
       final accepted = await _api.aceptarOferta(oferta.id);
+      debugPrint('Oferta aceptada: ${accepted.id}');
       if (!mounted) return;
-      CurrentServiceSession.instance.setService(accepted);
+      CurrentServiceSession.instance.setService(oferta);
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -100,23 +101,23 @@ class _OfertadaPageState extends State<OfertadaPage> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _loadData,
-                        child: const Text('Reintentar'),
-                      ),
-                    ],
-                  )
-                : _buildList(sorted),
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadData,
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              )
+            : _buildList(sorted),
       ),
     );
   }
