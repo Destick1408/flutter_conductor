@@ -37,4 +37,16 @@ class OfertaServicio {
         .map(OfertaServicio.fromJson)
         .toList();
   }
+
+  OfertaServicio copyWith({String? estado, Map<String, dynamic>? raw}) {
+    return OfertaServicio(
+      id: id,
+      tipo: tipo,
+      estado: estado ?? this.estado,
+      origenDireccion: origenDireccion,
+      origenLatitud: origenLatitud,
+      origenLongitud: origenLongitud,
+      raw: raw ?? this.raw,
+    );
+  }
 }

@@ -2,16 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/auth.dart';
 import 'package:flutter_conductor/api/conductor.dart';
+import 'package:flutter_conductor/api/servicios_api.dart';
 import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/api/perfil.dart';
+import 'package:flutter_conductor/models/oferta_servicio.dart';
 import 'package:flutter_conductor/models/user.dart';
+import 'package:flutter_conductor/models/service.dart';
 import 'package:flutter_conductor/services/permission_service.dart';
+import 'package:flutter_conductor/services/current_service_session.dart';
 import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_conductor/widgets/drawer_profile.dart';
 import 'package:flutter_conductor/widgets/working_status_button.dart';
+import 'package:flutter_conductor/pages/service_detail_page.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -33,6 +38,8 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   User? _user;
   bool _isConnected = false;
   String estadoLaboral = 'disponible';
+  final _currentServiceSession = CurrentServiceSession.instance;
+  final _serviciosApi = ServiciosApi();
 
   // Nuevo: notifier para la posición (evita setState frecuente)
   final ValueNotifier<LatLng?> _positionNotifier = ValueNotifier<LatLng?>(null);
@@ -238,6 +245,65 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     }
   }
 
+  Future<void> _onServiceAction(OfertaServicio service) async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.bestForNavigation,
+      );
+
+      Map<String, dynamic> data;
+      String nuevoEstado;
+
+      switch (service.estado) {
+        case 'en_sitio':
+          data = await _serviciosApi.marcarAbordo(
+            id: service.id,
+            lat: pos.latitude,
+            lng: pos.longitude,
+          );
+          nuevoEstado = 'abordo';
+          break;
+        case 'abordo':
+          data = await _serviciosApi.finalizar(
+            id: service.id,
+            lat: pos.latitude,
+            lng: pos.longitude,
+          );
+          final detalle = Service.fromJson(data);
+          if (!mounted) return;
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ServiceDetailPage(service: detalle),
+            ),
+          );
+          _currentServiceSession.setService(null);
+          if (mounted) {
+            setState(() {
+              estadoLaboral = 'disponible';
+            });
+          }
+          return;
+        case 'aceptado':
+        case 'asignado':
+        default:
+          data = await _serviciosApi.marcarEnSitio(
+            id: service.id,
+            lat: pos.latitude,
+            lng: pos.longitude,
+          );
+          nuevoEstado = 'en_sitio';
+      }
+
+      final updated = service.copyWith(estado: nuevoEstado, raw: data);
+      _currentServiceSession.setService(updated);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al actualizar servicio: $e')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     // No await aquí (dispose se ejecuta rápido); _sendDisconnect ya usa la última posición
@@ -332,9 +398,17 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
-      floatingActionButton: WorkingStatusButton(
-        estadoLaboral: estadoLaboral,
-        onToggle: _toggleEstadoLaboral,
+      floatingActionButton: ValueListenableBuilder<OfertaServicio?>(
+        valueListenable: CurrentServiceSession.instance.currentService,
+        builder: (context, currentService, _) {
+          return WorkingStatusButton(
+            estadoLaboral: estadoLaboral,
+            onToggle: _toggleEstadoLaboral,
+            currentService: currentService,
+            onServiceAction:
+                currentService == null ? null : _onServiceAction,
+          );
+        },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: const SimpleBottomNav(),
