@@ -35,9 +35,7 @@ class DrawerProfile extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const OfertadaPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const OfertadaPage()),
                       );
                     },
                   ),
@@ -83,32 +81,23 @@ class _DrawerHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
+        // Nuevo color (puedes cambiar los códigos hex si quieres otro tono)
         gradient: LinearGradient(
-          colors: [Color(0xFFFFD740), Color(0xFFFFEE58)],
+          colors: [Color(0xFF1976D2), Color(0xFF64B5F6)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          )
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center, // centrado horizontal
         children: [
-          UserInfo(user: user),
+          Center(child: UserInfo(user: user)), // centramos el contenido
           const SizedBox(height: 12),
-          Text(
-            'Gestiona tu cuenta y servicios',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: Colors.black87),
-          ),
         ],
       ),
     );
@@ -127,21 +116,17 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.grey[700],
-              letterSpacing: 0.8,
-              fontWeight: FontWeight.w600,
-            ),
+          color: Colors.grey[700],
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 }
 
 class _DrawerTile extends StatelessWidget {
-  const _DrawerTile({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _DrawerTile({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
@@ -154,9 +139,7 @@ class _DrawerTile extends StatelessWidget {
       title: Text(label),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
       onTap: onTap,
-      shape: const Border(
-        bottom: BorderSide(color: Color(0xFFE0E0E0)),
-      ),
+      shape: const Border(bottom: BorderSide(color: Color(0xFFE0E0E0))),
       visualDensity: VisualDensity.compact,
     );
   }
