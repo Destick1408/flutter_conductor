@@ -40,12 +40,41 @@ class ServiciosApi {
     required double lat,
     required double lng,
   }) {
-    return _patchServicio(
-      path: '/api/serv/finalizar/$id/',
-      accion: 'finalizar',
+    return _finalizarServicio(
+      id: id,
       lat: lat,
       lng: lng,
     );
+  }
+
+  Future<Map<String, dynamic>> _finalizarServicio({
+    required int id,
+    required double lat,
+    required double lng,
+  }) async {
+    final token = await AuthApi.getAccessToken();
+    final url = Uri.parse('$_baseUrl/api/serv/finalizar/$id/');
+
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+
+    final body = jsonEncode({
+      'accion': 'finalizar',
+      'latitud': lat,
+      'longitud': lng,
+    });
+
+    final resp = await http.patch(url, headers: headers, body: body);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('Error ${resp.statusCode}: ${resp.body}');
+    }
+
+    final decoded = jsonDecode(resp.body);
+    return decoded is Map<String, dynamic>
+        ? decoded
+        : <String, dynamic>{'data': decoded};
   }
 
   Future<Map<String, dynamic>> _patchServicio({

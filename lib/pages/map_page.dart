@@ -7,7 +7,6 @@ import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/api/perfil.dart';
 import 'package:flutter_conductor/models/oferta_servicio.dart';
 import 'package:flutter_conductor/models/user.dart';
-import 'package:flutter_conductor/models/service.dart';
 import 'package:flutter_conductor/services/permission_service.dart';
 import 'package:flutter_conductor/services/current_service_session.dart';
 import 'package:flutter_conductor/widgets/custom_bottom_nav.dart';
@@ -16,7 +15,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_conductor/widgets/drawer_profile.dart';
 import 'package:flutter_conductor/widgets/working_status_button.dart';
-import 'package:flutter_conductor/pages/service_detail_page.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -269,19 +267,22 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             lat: pos.latitude,
             lng: pos.longitude,
           );
-          final detalle = Service.fromJson(data);
           if (!mounted) return;
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ServiceDetailPage(service: detalle),
+          final valor = data['valor'] as String? ?? '0.00';
+          await showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => FractionallySizedBox(
+              heightFactor: 0.5,
+              child: _buildResumenCobro(service, valor),
             ),
           );
+          if (!mounted) return;
           _currentServiceSession.setService(null);
-          if (mounted) {
-            setState(() {
-              estadoLaboral = 'disponible';
-            });
-          }
+          if (!mounted) return;
+          setState(() {
+            estadoLaboral = 'disponible';
+          });
           return;
         case 'aceptado':
         case 'asignado':
@@ -302,6 +303,60 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         SnackBar(content: Text('Error al actualizar servicio: $e')),
       );
     }
+  }
+
+  Widget _buildResumenCobro(OfertaServicio service, String valor) {
+    String _safe(Map<String, dynamic> map, String key) {
+      final value = map[key];
+      return value?.toString() ?? '';
+    }
+
+    final raw = service.raw;
+    final cliente = (raw['cliente'] as Map<String, dynamic>?) ?? {};
+    final origen = (raw['origen'] as Map<String, dynamic>?) ?? {};
+    final destino = (raw['destino'] as Map<String, dynamic>?) ?? {};
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cliente: ${_safe(cliente, 'nombre')}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              if (origen.isNotEmpty)
+                Text('Origen: ${_safe(origen, 'direccion')}',
+                    style: const TextStyle(fontSize: 14)),
+              if (destino.isNotEmpty)
+                Text('Destino: ${_safe(destino, 'direccion')}',
+                    style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 16),
+              Text(
+                'Valor a cobrar: \$${valor}',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('CERRAR'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
