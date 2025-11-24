@@ -14,7 +14,7 @@ class WorkingStatusButton extends StatelessWidget {
   final String estadoLaboral;
   final VoidCallback onToggle;
   final Service? currentService;
-  final Future<void> Function(Service service)? onServiceAction;
+  final VoidCallback? onServiceAction;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +43,7 @@ class WorkingStatusButton extends StatelessWidget {
         shape: const CircleBorder(),
         heroTag: 'estado_servicio',
         backgroundColor: color,
-        onPressed: () => onServiceAction!(service),
+        onPressed: onServiceAction,
         child: Text(
           label,
           style: const TextStyle(fontSize: 16, color: Colors.white),

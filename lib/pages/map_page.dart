@@ -457,7 +457,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             estadoLaboral: estadoLaboral,
             onToggle: _toggleEstadoLaboral,
             currentService: currentService,
-            onServiceAction: currentService == null ? null : _onServiceAction,
+            onServiceAction: currentService != null
+                ? () => _onServiceAction(currentService)
+                : null,
           );
         },
       ),

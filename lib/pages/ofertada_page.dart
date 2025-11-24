@@ -55,7 +55,9 @@ class _OfertadaPageState extends State<OfertadaPage> {
       final accepted = await _api.aceptarOferta(oferta.id);
       debugPrint('Oferta aceptada: ${accepted.id}');
       if (!mounted) return;
-      CurrentServiceSession.instance.setService(accepted);
+      CurrentServiceSession.instance.setService(
+        oferta,
+      ); // IMPORTANTE, se debe dejar oferta y no el accepted
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;

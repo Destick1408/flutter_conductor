@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/service.dart';
 import 'auth.dart';
+import '../services/current_service_session.dart';
 
 class OfertasApi {
   final String _baseUrl;
@@ -55,6 +56,11 @@ class OfertasApi {
       throw Exception('Respuesta inválida al aceptar la oferta');
     }
 
-    return Service.fromJson(data);
+    final servicioAceptado = Service.fromJson(data);
+
+    // Guardar automáticamente en CurrentServiceSession
+    CurrentServiceSession.instance.setService(servicioAceptado);
+
+    return servicioAceptado;
   }
 }
