@@ -306,16 +306,6 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildResumenCobro(OfertaServicio service, String valor) {
-    String _safe(Map<String, dynamic> map, String key) {
-      final value = map[key];
-      return value?.toString() ?? '';
-    }
-
-    final raw = service.raw;
-    final cliente = (raw['cliente'] as Map<String, dynamic>?) ?? {};
-    final origen = (raw['origen'] as Map<String, dynamic>?) ?? {};
-    final destino = (raw['destino'] as Map<String, dynamic>?) ?? {};
-
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Card(
@@ -325,20 +315,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Cliente: ${_safe(cliente, 'nombre')}',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
               const SizedBox(height: 8),
-              if (origen.isNotEmpty)
-                Text('Origen: ${_safe(origen, 'direccion')}',
-                    style: const TextStyle(fontSize: 14)),
-              if (destino.isNotEmpty)
-                Text('Destino: ${_safe(destino, 'direccion')}',
-                    style: const TextStyle(fontSize: 14)),
-              const SizedBox(height: 16),
               Text(
-                'Valor a cobrar: \$${valor}',
+                'Valor a cobrar: \$$valor',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -460,8 +439,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             estadoLaboral: estadoLaboral,
             onToggle: _toggleEstadoLaboral,
             currentService: currentService,
-            onServiceAction:
-                currentService == null ? null : _onServiceAction,
+            onServiceAction: currentService == null ? null : _onServiceAction,
           );
         },
       ),
