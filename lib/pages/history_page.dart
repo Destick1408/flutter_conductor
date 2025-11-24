@@ -44,9 +44,10 @@ class _HistoryPageState extends State<HistoryPage> {
               final s = services[index];
               return ListTile(
                 leading: const Icon(Icons.history),
-                title: Text('${s.clienteNombre} — ${s.estado}'),
+                title:
+                    Text('${s.cliente?.nombreCompleto ?? 'Cliente'} — ${s.estado}'),
                 subtitle: Text(
-                  '${s.origenDireccion}\n→ ${s.destinoDireccion}\n${s.fechaSolicitud}',
+                  '${s.origen?.direccion ?? 'Origen'}\n→ ${s.destino?.direccion ?? 'Destino'}\n${s.fechaSolicitud}',
                 ),
                 isThreeLine: true,
                 trailing: const Icon(Icons.chevron_right),

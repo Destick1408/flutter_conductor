@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../api/ofertas_api.dart';
-import '../models/oferta_servicio.dart';
+import '../models/service.dart';
 import '../services/current_service_session.dart';
 
 class OfertadaPage extends StatefulWidget {
@@ -14,7 +14,7 @@ class OfertadaPage extends StatefulWidget {
 
 class _OfertadaPageState extends State<OfertadaPage> {
   final OfertasApi _api = OfertasApi();
-  final List<OfertaServicio> _ofertas = [];
+  final List<Service> _ofertas = [];
   bool _isLoading = false;
   String? _error;
   Position? _currentPosition;
@@ -49,13 +49,13 @@ class _OfertadaPageState extends State<OfertadaPage> {
     }
   }
 
-  Future<void> _acceptOferta(OfertaServicio oferta) async {
+  Future<void> _acceptOferta(Service oferta) async {
     setState(() => _acceptingId = oferta.id);
     try {
       final accepted = await _api.aceptarOferta(oferta.id);
       debugPrint('Oferta aceptada: ${accepted.id}');
       if (!mounted) return;
-      CurrentServiceSession.instance.setService(oferta);
+      CurrentServiceSession.instance.setService(accepted);
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -67,10 +67,10 @@ class _OfertadaPageState extends State<OfertadaPage> {
     }
   }
 
-  double _distanceFor(OfertaServicio oferta) {
+  double _distanceFor(Service oferta) {
     if (_currentPosition == null) return double.infinity;
-    final lat = double.tryParse(oferta.origenLatitud);
-    final lng = double.tryParse(oferta.origenLongitud);
+    final lat = double.tryParse(oferta.origen?.latitud ?? '');
+    final lng = double.tryParse(oferta.origen?.longitud ?? '');
     if (lat == null || lng == null) return double.infinity;
     return Geolocator.distanceBetween(
       _currentPosition!.latitude,
@@ -91,7 +91,7 @@ class _OfertadaPageState extends State<OfertadaPage> {
 
   @override
   Widget build(BuildContext context) {
-    final sorted = List<OfertaServicio>.from(_ofertas);
+    final sorted = List<Service>.from(_ofertas);
     sorted.sort((a, b) => _distanceFor(a).compareTo(_distanceFor(b)));
 
     return Scaffold(
@@ -122,7 +122,7 @@ class _OfertadaPageState extends State<OfertadaPage> {
     );
   }
 
-  Widget _buildList(List<OfertaServicio> sorted) {
+  Widget _buildList(List<Service> sorted) {
     if (sorted.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -144,7 +144,7 @@ class _OfertadaPageState extends State<OfertadaPage> {
         final distanceText = _formatDistance(distance);
         return ListTile(
           leading: const Icon(Icons.local_offer),
-          title: Text(oferta.origenDireccion),
+          title: Text(oferta.origen?.direccion ?? 'Origen no disponible'),
           subtitle: Text('Tipo: ${oferta.tipo} • Distancia: $distanceText'),
           trailing: _acceptingId == oferta.id
               ? const SizedBox(

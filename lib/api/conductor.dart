@@ -16,7 +16,7 @@ class ConductorApi {
         .timeout(const Duration(seconds: 10));
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      return Service.listFromJson(body);
+      return Service.listFromPaginatedJson(body);
     } else {
       throw Exception('Error ${resp.statusCode}: ${resp.body}');
     }
@@ -35,5 +35,29 @@ class ConductorApi {
     } else {
       throw Exception('Error ${resp.statusCode}: ${resp.body}');
     }
+  }
+
+  Future<Service?> fetchServicioActivo() async {
+    final url = Uri.parse('$_baseUrl/api/conductores/servicio-activo/');
+    final headers = await AuthApi.getAuthHeaders();
+    final resp = await http.get(url, headers: headers);
+
+    if (resp.statusCode == 404) {
+      return null;
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('Error ${resp.statusCode}: ${resp.body}');
+    }
+
+    final data = jsonDecode(resp.body);
+    if (data is! Map<String, dynamic> || data['success'] != true) {
+      return null;
+    }
+
+    final servicio = data['servicio'];
+    if (servicio is! Map<String, dynamic>) return null;
+
+    return Service.fromJson(servicio);
   }
 }

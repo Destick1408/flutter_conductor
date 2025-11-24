@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../models/oferta_servicio.dart';
+import '../models/service.dart';
 import 'auth.dart';
 
 class OfertasApi {
@@ -10,7 +10,7 @@ class OfertasApi {
 
   OfertasApi() : _baseUrl = baseUrl;
 
-  Future<List<OfertaServicio>> fetchOfertasSolicitadas() async {
+  Future<List<Service>> fetchOfertasSolicitadas() async {
     final token = await AuthApi.getAccessToken();
     final url = Uri.parse('$_baseUrl/api/serv/ofertas/');
 
@@ -27,11 +27,11 @@ class OfertasApi {
     final data = jsonDecode(resp.body);
     if (data is! Map<String, dynamic>) return const [];
 
-    final ofertas = OfertaServicio.listFromPaginatedJson(data);
+    final ofertas = Service.listFromPaginatedJson(data);
     return ofertas.where((o) => o.estado == 'solicitado').toList();
   }
 
-  Future<OfertaServicio> aceptarOferta(int id) async {
+  Future<Service> aceptarOferta(int id) async {
     final token = await AuthApi.getAccessToken();
     final url = Uri.parse('$_baseUrl/api/serv/aceptar-servicio/$id/');
 
@@ -55,6 +55,6 @@ class OfertasApi {
       throw Exception('Respuesta inválida al aceptar la oferta');
     }
 
-    return OfertaServicio.fromJson(data);
+    return Service.fromJson(data);
   }
 }

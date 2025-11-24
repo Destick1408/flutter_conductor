@@ -5,7 +5,7 @@ import '../api/chat_api.dart';
 import '../pages/chat_page.dart';
 import '../services/chat_ws_service.dart';
 import '../pages/ofertada_page.dart';
-import '../models/oferta_servicio.dart';
+import '../models/service.dart';
 import '../pages/service_info_page.dart';
 import '../services/current_service_session.dart';
 
@@ -23,7 +23,7 @@ class SimpleBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<OfertaServicio?>(
+    return ValueListenableBuilder<Service?>(
       valueListenable: CurrentServiceSession.instance.currentService,
       builder: (context, currentService, _) {
         return BottomAppBar(

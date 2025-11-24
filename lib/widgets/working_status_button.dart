@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_conductor/models/oferta_servicio.dart';
+import 'package:flutter_conductor/models/service.dart';
 
 class WorkingStatusButton extends StatelessWidget {
   const WorkingStatusButton({
@@ -13,8 +13,8 @@ class WorkingStatusButton extends StatelessWidget {
 
   final String estadoLaboral;
   final VoidCallback onToggle;
-  final OfertaServicio? currentService;
-  final Future<void> Function(OfertaServicio service)? onServiceAction;
+  final Service? currentService;
+  final Future<void> Function(Service service)? onServiceAction;
 
   @override
   Widget build(BuildContext context) {

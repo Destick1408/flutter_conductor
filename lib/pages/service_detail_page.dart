@@ -51,10 +51,14 @@ class ServiceDetailPage extends StatelessWidget {
             _section('Resumen', [
               Text('Estado: ${service.estado}'),
               Text('Fecha solicitud: ${service.fechaSolicitud}'),
-              Text('Cliente: ${service.clienteNombre}'),
+              Text(
+                'Cliente: ${service.cliente?.nombreCompleto ?? 'No especificado'}',
+              ),
             ]),
             _section('Origen', [
-              Text('Dirección: ${service.origenDireccion}'),
+              Text(
+                'Dirección: ${service.origen?.direccion ?? 'No disponible'}',
+              ),
               Text(
                 'Lat: ${_safe(raw, 'origen.latitud')}  Lng: ${_safe(raw, 'origen.longitud')}',
               ),
@@ -64,7 +68,9 @@ class ServiceDetailPage extends StatelessWidget {
               Text('telefono: ${_safe(raw, 'cliente.telefono')}'),
             ]),
             _section('Destino', [
-              Text('Dirección: ${service.destinoDireccion}'),
+              Text(
+                'Dirección: ${service.destino?.direccion ?? 'No disponible'}',
+              ),
               Text(
                 'Lat: ${_safe(raw, 'destino.latitud')}  Lng: ${_safe(raw, 'destino.longitud')}',
               ),
@@ -85,6 +91,9 @@ class ServiceDetailPage extends StatelessWidget {
             ]),
             _section('Observaciones', [Text(_safe(raw, 'observaciones'))]),
             const SizedBox(height: 20),
+            _section('Valor del servicio', [
+              Text('Total: ${service.valorFinal}'),
+            ]),
           ],
         ),
       ),

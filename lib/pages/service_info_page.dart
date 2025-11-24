@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/oferta_servicio.dart';
+import '../models/service.dart';
 import '../services/current_service_session.dart';
 
 class ServiceInfoPage extends StatelessWidget {
@@ -8,7 +8,7 @@ class ServiceInfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<OfertaServicio?>(
+    return ValueListenableBuilder<Service?>(
       valueListenable: CurrentServiceSession.instance.currentService,
       builder: (context, service, _) {
         final content = service == null
@@ -29,34 +29,24 @@ class ServiceInfoPage extends StatelessWidget {
 class _ServiceDetails extends StatelessWidget {
   const _ServiceDetails({required this.service});
 
-  final OfertaServicio service;
+  final Service service;
 
   String _extractClienteNombre() {
-    final raw = service.raw;
-    final cliente = raw['cliente'] as Map<String, dynamic>?;
-
-    final nombre = raw['cliente_nombre'] ?? cliente?['nombre'] ?? cliente?['first_name'];
-    final apellido =
-        raw['cliente_apellido'] ?? cliente?['apellido'] ?? cliente?['last_name'];
-
-    final first = (nombre ?? '').toString().trim();
-    final last = (apellido ?? '').toString().trim();
-
-    if (first.isEmpty && last.isEmpty) return 'No especificado';
-    return '$first $last'.trim();
+    final cliente = service.cliente;
+    final nombre = cliente?.nombreCompleto.trim();
+    if (nombre == null || nombre.isEmpty) return 'No especificado';
+    return nombre;
   }
 
   String _extractOrigenNombre() {
-    final origen = service.raw['origen'] as Map<String, dynamic>?;
-    final nombre = origen?['nombre'] ?? origen?['direccion'] ?? '';
-    final text = nombre.toString().trim();
+    final origen = service.origen?.direccion ?? '';
+    final text = origen.toString().trim();
     return text.isEmpty ? 'No especificado' : text;
   }
 
   String _extractDestinoNombre() {
-    final destino = service.raw['destino'] as Map<String, dynamic>?;
-    final nombre = destino?['nombre'] ?? destino?['direccion'] ?? '';
-    return nombre.toString().trim();
+    final destino = service.destino?.direccion ?? '';
+    return destino.toString().trim();
   }
 
   String _extractField(String key, {String fallback = 'No especificado'}) {

@@ -5,7 +5,7 @@ import 'package:flutter_conductor/api/conductor.dart';
 import 'package:flutter_conductor/api/servicios_api.dart';
 import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/api/perfil.dart';
-import 'package:flutter_conductor/models/oferta_servicio.dart';
+import 'package:flutter_conductor/models/service.dart';
 import 'package:flutter_conductor/models/user.dart';
 import 'package:flutter_conductor/services/permission_service.dart';
 import 'package:flutter_conductor/services/current_service_session.dart';
@@ -37,6 +37,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   bool _isConnected = false;
   String estadoLaboral = 'disponible';
   final _currentServiceSession = CurrentServiceSession.instance;
+  final _conductorApi = ConductorApi();
   final _serviciosApi = ServiciosApi();
 
   // Nuevo: notifier para la posición (evita setState frecuente)
@@ -67,6 +68,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     // 3. Cargar perfil
     await _loadProfile();
 
+    // 3.1 Restaurar servicio activo si existe
+    await _restoreActiveService();
+
     // 4. Conectar WebSocket
     await _connectWebSocket();
 
@@ -82,6 +86,20 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     debugPrint('Usuario cargado: ${_user?.username}');
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _restoreActiveService() async {
+    try {
+      final servicio = await _conductorApi.fetchServicioActivo();
+      if (servicio == null) return;
+      _currentServiceSession.setService(servicio);
+      if (!mounted) return;
+      setState(() {
+        estadoLaboral = 'ocupado';
+      });
+    } catch (e) {
+      debugPrint('No se pudo restaurar el servicio activo: $e');
+    }
   }
 
   // Conectar al WebSocket
@@ -243,7 +261,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     }
   }
 
-  Future<void> _onServiceAction(OfertaServicio service) async {
+  Future<void> _onServiceAction(Service service) async {
     try {
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.bestForNavigation,
@@ -305,7 +323,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     }
   }
 
-  Widget _buildResumenCobro(OfertaServicio service, String valor) {
+  Widget _buildResumenCobro(Service service, String valor) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Card(
@@ -375,7 +393,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
-      drawer: DrawerProfile(user: _user),
+      drawer: SafeArea(child: DrawerProfile(user: _user)),
       body: Stack(
         children: [
           FlutterMap(
@@ -432,7 +450,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           ),
         ],
       ),
-      floatingActionButton: ValueListenableBuilder<OfertaServicio?>(
+      floatingActionButton: ValueListenableBuilder<Service?>(
         valueListenable: CurrentServiceSession.instance.currentService,
         builder: (context, currentService, _) {
           return WorkingStatusButton(

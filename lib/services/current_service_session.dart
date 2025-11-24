@@ -1,16 +1,15 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/oferta_servicio.dart';
+import '../models/service.dart';
 
 class CurrentServiceSession {
   CurrentServiceSession._();
 
   static final CurrentServiceSession instance = CurrentServiceSession._();
 
-  final ValueNotifier<OfertaServicio?> currentService =
-      ValueNotifier<OfertaServicio?>(null);
+  final ValueNotifier<Service?> currentService = ValueNotifier<Service?>(null);
 
-  void setService(OfertaServicio? service) {
+  void setService(Service? service) {
     currentService.value = service;
   }
 }
