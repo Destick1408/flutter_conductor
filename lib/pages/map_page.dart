@@ -42,6 +42,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   final _currentServiceSession = CurrentServiceSession.instance;
   final _conductorApi = ConductorApi();
   final _serviciosApi = ServiciosApi();
+  bool _isShowingAssigningSheet = false;
 
   // Nuevo: notifier para la posición (evita setState frecuente)
   final ValueNotifier<LatLng?> _positionNotifier = ValueNotifier<LatLng?>(null);
@@ -400,24 +401,40 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   Future<void> _showAssigningService(Service service) async {
     if (!mounted) return;
-    await showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AssigningServiceTimer(
-        service: service,
-        onAccepted: () {
-          _currentServiceSession.setService(service);
-          if (!mounted) return;
-          setState(() {
-            estadoLaboral = 'ocupado';
-          });
-        },
-        onCancelled: () {},
-        onTimeout: () {},
-      ),
-    );
+
+    // NUEVO: si ya hay un modal abierto, ignoro la nueva notificación
+    if (_isShowingAssigningSheet) {
+      debugPrint('⚠️ Ya hay un servicio en pantalla, se ignora ${service.id}');
+      return;
+    }
+
+    _isShowingAssigningSheet = true; // NUEVO
+    try {
+      await showModalBottomSheet(
+        context: context,
+        isDismissible: false,
+        enableDrag: false,
+        backgroundColor: Colors.transparent,
+        builder: (_) => AssigningServiceTimer(
+          service: service,
+          onAccepted: () {
+            _currentServiceSession.setService(service);
+            if (!mounted) return;
+            setState(() {
+              estadoLaboral = 'ocupado';
+            });
+          },
+          onCancelled: () {
+            // opcional: volver a disponible si quieres
+          },
+          onTimeout: () {
+            // opcional: volver a disponible si quieres
+          },
+        ),
+      );
+    } finally {
+      _isShowingAssigningSheet = false; // NUEVO
+    }
   }
 
   @override
