@@ -5,6 +5,7 @@ import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/models/service.dart';
 import 'package:flutter_conductor/api/ofertas_api.dart';
 import 'package:flutter_conductor/services/current_service_session.dart';
+import 'package:flutter_conductor/api/liberar_lock_api.dart';
 
 class AssigningServiceTimer extends StatefulWidget {
   const AssigningServiceTimer({
@@ -59,28 +60,33 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
     });
   }
 
-  void _handleAccept() {
+  void _handleAccept() async {
     if (_isClosing || _remainingSeconds <= 0) return;
     _isClosing = true;
     try {
-      _api.aceptarOferta(widget.service.id);
+      await _api.aceptarOferta(widget.service.id);
       CurrentServiceSession.instance.setService(widget.service);
     } catch (e) {
       debugPrint('error al aceptar servicio automatico : $e');
     }
+    if (!mounted) return; // Verifica que el widget sigue en pantalla
     widget.onAccepted();
     Navigator.of(context).pop();
   }
 
-  void _handleReject({bool isTimeout = false}) {
-    if (_isClosing) return;
+  void _handleReject({bool isTimeout = false}) async {
+    if (_isClosing) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
     _isClosing = true;
+    try {
+      await LiberarLockApi().liberarLock(widget.service.id);
+    } catch (e) {
+      debugPrint('error al liberar lock del servicio automatico : $e');
+    }
 
-    WebSocketApi.send({
-      'type': 'servicio_notificacion',
-      'accion': 'rechazado',
-      'servicio_id': widget.service.id,
-    });
+    if (!mounted) return;
 
     if (isTimeout) {
       widget.onTimeout();
