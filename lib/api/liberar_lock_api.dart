@@ -7,7 +7,7 @@ final String _baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://10.0.2.2:8000';
 
 class LiberarLockApi {
   Future<void> liberarLock(int servicioId) async {
-    final url = Uri.parse('$_baseUrl/api/serv/liberar-lock/');
+    final url = Uri.parse('$_baseUrl/api/serv/liberar-lock/$servicioId/');
     final headers = await AuthApi.getAuthHeaders();
     final resp = await http
         .post(url, headers: headers)
