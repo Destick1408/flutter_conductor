@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/models/service.dart';
 import 'package:flutter_conductor/api/ofertas_api.dart';
+import 'package:flutter_conductor/services/current_service_session.dart';
 
 class AssigningServiceTimer extends StatefulWidget {
   const AssigningServiceTimer({
@@ -63,8 +64,9 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
     _isClosing = true;
     try {
       _api.aceptarOferta(widget.service.id);
+      CurrentServiceSession.instance.setService(widget.service);
     } catch (e) {
-      // Handle error if needed
+      debugPrint('error al aceptar servicio automatico : $e');
     }
     widget.onAccepted();
     Navigator.of(context).pop();
@@ -75,7 +77,7 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
     _isClosing = true;
 
     WebSocketApi.send({
-      'type': 'servicio_respuesta',
+      'type': 'servicio_notificacion',
       'accion': 'rechazado',
       'servicio_id': widget.service.id,
     });
@@ -106,7 +108,6 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
 
     return Stack(
       children: [
-        Container(color: Colors.black54),
         Align(
           alignment: Alignment.bottomCenter,
           child: FractionallySizedBox(
