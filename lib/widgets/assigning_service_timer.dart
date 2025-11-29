@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/models/service.dart';
 import 'package:flutter_conductor/api/ofertas_api.dart';
 import 'package:flutter_conductor/services/current_service_session.dart';
