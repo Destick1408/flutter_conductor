@@ -94,7 +94,10 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Future<void> _restoreActiveService() async {
     try {
       final servicio = await _conductorApi.fetchServicioActivo();
-      if (servicio == null) return;
+      if (servicio == null) {
+        _currentServiceSession.setService(null);
+        return;
+      }
       _currentServiceSession.setService(servicio);
       if (!mounted) return;
       setState(() {
@@ -381,7 +384,8 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         final type = data['type'] as String?;
         final accion = data['accion'] as String?;
 
-        if (type == 'servicio_notificacion' && accion == 'servicio_automatico') {
+        if (type == 'servicio_notificacion' &&
+            accion == 'servicio_automatico') {
           final servicioData = data['servicio'];
           if (servicioData is Map<String, dynamic>) {
             final service = Service.fromJson(servicioData);
