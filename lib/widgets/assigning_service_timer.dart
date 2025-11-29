@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_conductor/api/websocket.dart';
 import 'package:flutter_conductor/models/service.dart';
+import 'package:flutter_conductor/api/ofertas_api.dart';
 
 class AssigningServiceTimer extends StatefulWidget {
   const AssigningServiceTimer({
@@ -28,6 +29,7 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
   late int _remainingSeconds;
   Timer? _timer;
   bool _isClosing = false;
+  final OfertasApi _api = OfertasApi();
 
   @override
   void initState() {
@@ -59,14 +61,11 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
   void _handleAccept() {
     if (_isClosing || _remainingSeconds <= 0) return;
     _isClosing = true;
-
-    WebSocketApi.send({
-      'type': 'servicio_respuesta',
-      'accion': 'aceptado',
-      'servicio_id': widget.service.id,
-      'endpoint': '/api/serv/aceptar-servicio/${widget.service.id}/',
-    });
-
+    try {
+      _api.aceptarOferta(widget.service.id);
+    } catch (e) {
+      // Handle error if needed
+    }
     widget.onAccepted();
     Navigator.of(context).pop();
   }
@@ -193,8 +192,9 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed:
-                                _remainingSeconds <= 0 ? null : () => _handleAccept(),
+                            onPressed: _remainingSeconds <= 0
+                                ? null
+                                : () => _handleAccept(),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
