@@ -76,18 +76,25 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
     if (_isClosing) return;
     _isClosing = true;
 
-    WebSocketApi.send({
-      'type': 'servicio_notificacion',
-      'accion': 'rechazado',
-      'servicio_id': widget.service.id,
-    });
-
-    if (isTimeout) {
-      widget.onTimeout();
-    } else {
-      widget.onCancelled();
+    try {
+      WebSocketApi.send({
+        'type': 'servicio_notificacion',
+        'accion': 'rechazado',
+        'servicio_id': widget.service.id,
+      });
+    } catch (e) {
+      debugPrint('Error al enviar rechazo por WS: $e'); // NUEVO
+    } finally {
+      // NUEVO
+      if (isTimeout) {
+        widget.onTimeout();
+      } else {
+        widget.onCancelled();
+      }
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
-    Navigator.of(context).pop();
   }
 
   void _handleTimeout() {
