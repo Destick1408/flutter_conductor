@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_conductor/widgets/assigning_service_timer.dart';
 import 'package:flutter_conductor/api/auth.dart';
 import 'package:flutter_conductor/api/conductor.dart';
 import 'package:flutter_conductor/api/servicios_api.dart';
@@ -109,9 +112,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
       // Escuchar mensajes del servidor
       _webSocketSubscription = WebSocketApi.stream?.listen(
-        (message) {
-          // Aquí puedes procesar mensajes del servidor si es necesario
-        },
+        _handleWebSocketMessage,
         onError: (error) {
           if (!mounted) return;
           setState(() => _isConnected = false);
@@ -365,6 +366,54 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     _positionNotifier.dispose();
     WebSocketApi.close();
     super.dispose();
+  }
+
+  void _handleWebSocketMessage(dynamic message) {
+    try {
+      dynamic data = message;
+      if (message is String) {
+        data = jsonDecode(message);
+      }
+
+      debugPrint('🔔 WebSocket data: $data');
+
+      if (data is Map<String, dynamic>) {
+        final type = data['type'] as String?;
+        final accion = data['accion'] as String?;
+
+        if (type == 'servicio_notificacion' && accion == 'servicio_automatico') {
+          final servicioData = data['servicio'];
+          if (servicioData is Map<String, dynamic>) {
+            final service = Service.fromJson(servicioData);
+            _showAssigningService(service);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error al manejar mensaje WebSocket: $e');
+    }
+  }
+
+  Future<void> _showAssigningService(Service service) async {
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AssigningServiceTimer(
+        service: service,
+        onAccepted: () {
+          _currentServiceSession.setService(service);
+          if (!mounted) return;
+          setState(() {
+            estadoLaboral = 'ocupado';
+          });
+        },
+        onCancelled: () {},
+        onTimeout: () {},
+      ),
+    );
   }
 
   @override
