@@ -1,8 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-
-import 'auth.dart';
+import 'package:flutter_conductor/api/auth.dart';
 
 class ServiciosApi {
   final String _baseUrl;
@@ -40,11 +39,7 @@ class ServiciosApi {
     required double lat,
     required double lng,
   }) {
-    return _finalizarServicio(
-      id: id,
-      lat: lat,
-      lng: lng,
-    );
+    return _finalizarServicio(id: id, lat: lat, lng: lng);
   }
 
   Future<Map<String, dynamic>> _finalizarServicio({
@@ -52,13 +47,9 @@ class ServiciosApi {
     required double lat,
     required double lng,
   }) async {
-    final token = await AuthApi.getAccessToken();
     final url = Uri.parse('$_baseUrl/api/serv/finalizar/$id/');
 
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
+    final headers = await AuthApi.getAuthHeaders();
 
     final body = jsonEncode({
       'accion': 'finalizar',
@@ -83,13 +74,9 @@ class ServiciosApi {
     required double lat,
     required double lng,
   }) async {
-    final token = await AuthApi.getAccessToken();
     final url = Uri.parse('$_baseUrl$path');
 
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-    };
+    final headers = await AuthApi.getAuthHeaders();
 
     final body = jsonEncode({
       'accion': accion,
@@ -107,6 +94,30 @@ class ServiciosApi {
       throw Exception('Respuesta inválida del servidor');
     }
 
+    return data;
+  }
+
+  Future<Map<String, dynamic>> servicioTracking({
+    required int id,
+    required double lat,
+    required double lng,
+  }) async {
+    final url = Uri.parse('$_baseUrl/api/serv/servicio-tracking/');
+    final headers = await AuthApi.getAuthHeaders();
+    final body = jsonEncode({
+      'servicio_id': id,
+      'latitud': lat,
+      'longitud': lng,
+    });
+
+    final resp = await http.post(url, headers: headers, body: body);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('Error ${resp.statusCode}: ${resp.body}');
+    }
+    final data = jsonDecode(resp.body);
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Respuesta inválida del servidor');
+    }
     return data;
   }
 }

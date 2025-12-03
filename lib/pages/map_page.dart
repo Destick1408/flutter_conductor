@@ -43,6 +43,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   final _conductorApi = ConductorApi();
   final _serviciosApi = ServiciosApi();
   bool _isShowingAssigningSheet = false;
+  final ServiciosApi serviciosApi = ServiciosApi();
 
   // Nuevo: notifier para la posición (evita setState frecuente)
   final ValueNotifier<LatLng?> _positionNotifier = ValueNotifier<LatLng?>(null);
@@ -145,7 +146,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           Geolocator.getPositionStream(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 5, // Enviar cada 5 metros de cambio
+              distanceFilter: 100, // Enviar cada 100 metros de cambio
             ),
           ).listen((Position pos) {
             if (!mounted) return;
@@ -168,6 +169,24 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             // Enviar ubicación por WebSocket en tiempo real
             if (_isConnected) {
               WebSocketApi.enviarUbicacion(pos);
+            }
+
+            final currentService =
+                CurrentServiceSession.instance.currentService.value;
+            if (currentService != null &&
+                (currentService.estado == 'aceptado' ||
+                    currentService.estado == 'asignado' ||
+                    currentService.estado == 'en_sitio' ||
+                    currentService.estado == 'abordo')) {
+              try {
+                serviciosApi.servicioTracking(
+                  id: currentService.id,
+                  lat: pos.latitude,
+                  lng: pos.longitude,
+                );
+              } catch (e) {
+                debugPrint('Error al enviar ubicación a la API: $e');
+              }
             }
           });
     } catch (e) {
