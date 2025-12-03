@@ -13,20 +13,33 @@ class WebSocketApi {
   static WebSocketChannel? _channel;
   static StreamController<dynamic>? _streamController;
 
+  // Notificador de conexión
+  static final ValueNotifier<bool> connectionStatus = ValueNotifier<bool>(
+    false,
+  );
+
+  // Reconexión automática
+  static bool _manualDisconnect = false;
+  static int _reconnectAttempts = 0;
+  static Timer? _reconnectTimer;
+  static String _lastEndpoint = '';
+  static const int _maxReconnectAttempts = 20;
+
   // Conectar al WebSocket
   static Future<bool> connect(String endpoint) async {
+    _lastEndpoint = endpoint;
+    _manualDisconnect = false;
     if (_channel != null) {
       debugPrint('⚠️ Ya está conectado al WebSocket');
-      return true; // aqui se devuelve true porque ya está conectado
+      connectionStatus.value = true;
+      return true;
     }
-    // Activar WakeLock para mantener la conexión activa
     try {
       await WakelockPlus.enable();
       debugPrint('🔓 Wakelock activado');
     } catch (e) {
       debugPrint('⚠️ Error al activar wakelock: $e');
     }
-    // aqui cargo el token desde las shared preferences
     try {
       final token = await AuthApi.getAccessToken();
 
@@ -34,16 +47,14 @@ class WebSocketApi {
         debugPrint('❌ No hay token de autenticación');
         return false;
       }
-      // aca contruyo la url completa
       final url = Uri.parse('$_baseWsUrl/$endpoint?token=$token');
       debugPrint('🔌 Conectando a: $url');
-      // aca me conecto al websocket
       try {
         _channel = WebSocketChannel.connect(url);
         debugPrint('✅ Conectado exitosamente al websocket');
       } catch (e) {
         debugPrint('❌ Error al conectar: $e');
-        return false; // regreso false si da error porque no me pude conectar
+        return false;
       }
 
       _streamController = StreamController<dynamic>.broadcast();
@@ -51,8 +62,6 @@ class WebSocketApi {
       _channel?.stream.listen(
         (event) {
           debugPrint('📩 Mensaje recibido: $event');
-
-          // Manejar ping/pong
           try {
             final data = jsonDecode(event);
             if (data['type'] == 'ping') {
@@ -63,36 +72,73 @@ class WebSocketApi {
           } catch (e) {
             debugPrint('⚠️ Error al procesar ping/pong: $e');
           }
-
           _streamController?.add(event);
         },
         onError: (error) {
           debugPrint('⚠️ WebSocket error: $error');
           _streamController?.addError(error);
+          connectionStatus.value = false;
         },
         onDone: () {
           debugPrint('🔌 WebSocket cerrado');
           _streamController?.close();
           _channel = null;
+          connectionStatus.value = false;
+          _attemptReconnect();
         },
       );
 
       debugPrint('✅ Conectado exitosamente');
+      _reconnectAttempts = 0; // reset al conectar bien
+      connectionStatus.value = true;
       return true;
     } catch (e) {
       debugPrint('❌ Error al conectar: $e');
       return false;
     }
-  } // funcion connect fin
+  }
 
-  // Desconectar manualmente
+  // Reconexión automática
+  static void _attemptReconnect() {
+    if (_manualDisconnect) {
+      debugPrint('ℹ️ Cierre manual: no reconectar');
+      return;
+    }
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('❌ Máximos intentos de reconexión alcanzados');
+      return;
+    }
+    _reconnectAttempts++;
+    final delayMs = _computeBackoff(_reconnectAttempts);
+    debugPrint('🔄 Intento de reconexión #$_reconnectAttempts en ${delayMs}ms');
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(milliseconds: delayMs), () async {
+      final ok = await connect(_lastEndpoint);
+      if (ok) {
+        debugPrint('✅ Reconectado');
+        _reconnectAttempts = 0;
+      } else {
+        _attemptReconnect();
+      }
+    });
+  }
+
+  static int _computeBackoff(int attempt) {
+    final ms = (1000 * (1 << (attempt - 1)));
+    return ms > 8000 ? 8000 : ms;
+  }
+
+  // Desconectar manualmente (solo se usa al cerrar la app)
   static void disconnect() {
     debugPrint('🛑 Desconectando WebSocket');
+    _manualDisconnect = true;
+    _reconnectTimer?.cancel();
     _channel?.sink.close();
     _streamController?.close();
     _channel = null;
     _streamController = null;
-    // Desactivar WakeLock
+    connectionStatus.value = false;
     WakelockPlus.disable()
         .then((_) {
           debugPrint('🔒 Wakelock desactivado');

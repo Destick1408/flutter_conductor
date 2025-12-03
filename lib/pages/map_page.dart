@@ -38,7 +38,6 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   // // Aumentado el intervalo mínimo para reducir frecuencia de rebuilds
   // static const int _minUpdateIntervalMs = 300;
   User? _user;
-  bool _isConnected = false;
   String estadoLaboral = 'disponible';
   final _currentServiceSession = CurrentServiceSession.instance;
   final _conductorApi = ConductorApi();
@@ -121,21 +120,14 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         _handleWebSocketMessage,
         onError: (error) {
           if (!mounted) return;
-          setState(() => _isConnected = false);
         },
         onDone: () {
           if (!mounted) return;
-          setState(() => _isConnected = false);
         },
       );
-
-      if (!mounted) return;
-      setState(() => _isConnected = true);
       debugPrint('WebSocket conectado exitosamente');
     } catch (e) {
       debugPrint('Error al conectar WebSocket: $e');
-      if (!mounted) return;
-      setState(() => _isConnected = false);
     }
   }
 
@@ -191,7 +183,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
             ),
           ).listen((Position pos) {
             if (!mounted) return;
-            if (_isConnected) {
+            if (WebSocketApi.connectionStatus.value) {
               WebSocketApi.enviarUbicacion(pos);
             }
             _enviarUbicacionBackend(pos);
@@ -216,7 +208,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
       _mapController.move(newLatLng, _zoom);
 
       // Enviar ubicación actual por WebSocket
-      if (_isConnected) {
+      if (WebSocketApi.connectionStatus.value) {
         WebSocketApi.enviarUbicacion(pos);
       }
     } catch (e) {
@@ -230,7 +222,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Future<void> _sendDisconnect() async {
     try {
       // Evitar llamar a getCurrentPosition en dispose; usar última posición conocida
-      if (_currentPosition != null && _isConnected) {
+      if (_currentPosition != null && WebSocketApi.connectionStatus.value) {
         // Construimos un Position rápido con los valores mínimos necesarios
         final pos = Position(
           latitude: _currentPosition!.latitude,
@@ -295,7 +287,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   Future<void> _onServiceAction(Service service) async {
     try {
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.bestForNavigation,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+        ),
       );
 
       Map<String, dynamic> data;
@@ -471,14 +465,19 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           children: [
             const Text('Ivancar'),
             const SizedBox(width: 8),
-            // Indicador de conexión WebSocket
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isConnected ? Colors.green : Colors.red,
-              ),
+            // Indicador de conexión WebSocket reactivo
+            ValueListenableBuilder<bool>(
+              valueListenable: WebSocketApi.connectionStatus,
+              builder: (context, connected, _) {
+                return Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: connected ? Colors.green : Colors.red,
+                  ),
+                );
+              },
             ),
           ],
         ),
