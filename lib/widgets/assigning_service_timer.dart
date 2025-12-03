@@ -115,101 +115,107 @@ class _AssigningServiceTimerState extends State<AssigningServiceTimer> {
       children: [
         Align(
           alignment: Alignment.bottomCenter,
-          child: FractionallySizedBox(
-            heightFactor: 0.55,
-            widthFactor: 1,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Nuevo servicio asignado',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+          child: SafeArea(
+            child: FractionallySizedBox(
+              heightFactor: 0.55,
+              widthFactor: 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Nuevo servicio asignado',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Chip(
-                          label: Text('$_remainingSeconds s'),
-                          backgroundColor: Colors.blue.shade50,
-                          labelStyle: const TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
+                          Chip(
+                            label: Text('$_remainingSeconds s'),
+                            backgroundColor: Colors.blue.shade50,
+                            labelStyle: const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _formatTipo(widget.service.tipo),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Icon(Icons.my_location, color: Colors.green),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            origen.isEmpty ? 'Origen no disponible' : origen,
-                            style: const TextStyle(fontSize: 16),
-                          ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _formatTipo(widget.service.tipo),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (destino.isNotEmpty)
+                      ),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
-                          const Icon(Icons.location_on, color: Colors.red),
+                          const Icon(Icons.my_location, color: Colors.green),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              destino,
+                              origen.isEmpty ? 'Origen no disponible' : origen,
                               style: const TextStyle(fontSize: 16),
                             ),
                           ),
                         ],
                       ),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _handleReject(),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                      const SizedBox(height: 8),
+                      if (destino.isNotEmpty)
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                destino,
+                                style: const TextStyle(fontSize: 16),
+                              ),
                             ),
-                            child: const Text('Rechazar'),
-                          ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _remainingSeconds <= 0
-                                ? null
-                                : () => _handleAccept(),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _handleReject(),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                              ),
+                              child: const Text('Rechazar'),
                             ),
-                            child: const Text('Aceptar'),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _remainingSeconds <= 0
+                                  ? null
+                                  : () => _handleAccept(),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                              ),
+                              child: const Text('Aceptar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

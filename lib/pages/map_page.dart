@@ -32,10 +32,11 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   final double _zoom = 16.0;
   LatLng? _currentPosition;
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<Position>? _backendPositionStream;
   StreamSubscription<dynamic>? _webSocketSubscription;
-  int _lastUpdateMillis = 0;
-  // Aumentado el intervalo mínimo para reducir frecuencia de rebuilds
-  static const int _minUpdateIntervalMs = 300;
+  // int _lastUpdateMillis = 0;
+  // // Aumentado el intervalo mínimo para reducir frecuencia de rebuilds
+  // static const int _minUpdateIntervalMs = 300;
   User? _user;
   bool _isConnected = false;
   String estadoLaboral = 'disponible';
@@ -138,56 +139,62 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     }
   }
 
+  // Función para enviar ubicación al backend
+  void _enviarUbicacionBackend(Position pos) {
+    final currentService = CurrentServiceSession.instance.currentService.value;
+    if (currentService != null &&
+        (currentService.estado == 'aceptado' ||
+            currentService.estado == 'asignado' ||
+            currentService.estado == 'en_sitio' ||
+            currentService.estado == 'abordo')) {
+      try {
+        serviciosApi.servicioTracking(
+          id: currentService.id,
+          lat: pos.latitude,
+          lng: pos.longitude,
+        );
+      } catch (e) {
+        debugPrint('Error al enviar ubicación a la API: $e');
+      }
+    }
+  }
+
+  // Actualiza el mapa cada 5m y envía al backend cada 300m
   Future<void> _startLocationUpdates() async {
     try {
-      // Ya no necesitas pedir permisos aquí, ya se pidieron en _initializeApp
       await _positionStream?.cancel();
+      await _backendPositionStream?.cancel();
+
+      // 1. Actualiza el mapa cada 5 metros
       _positionStream =
           Geolocator.getPositionStream(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 100, // Enviar cada 100 metros de cambio
+              distanceFilter: 5,
             ),
           ).listen((Position pos) {
             if (!mounted) return;
-
-            final now = DateTime.now().millisecondsSinceEpoch;
-            if (now - _lastUpdateMillis < _minUpdateIntervalMs) return;
-            _lastUpdateMillis = now;
-
             final LatLng newLatLng = LatLng(pos.latitude, pos.longitude);
-
-            // Evitar setState: actualizar variables y notifier
             _currentPosition = newLatLng;
             _positionNotifier.value = newLatLng;
-
-            // Mover el mapa directamente; no requiere setState
             try {
               _mapController.move(newLatLng, _zoom);
             } catch (_) {}
+          });
 
-            // Enviar ubicación por WebSocket en tiempo real
+      // 2. Envía al backend cada 300 metros
+      _backendPositionStream =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.bestForNavigation,
+              distanceFilter: 300,
+            ),
+          ).listen((Position pos) {
+            if (!mounted) return;
             if (_isConnected) {
               WebSocketApi.enviarUbicacion(pos);
             }
-
-            final currentService =
-                CurrentServiceSession.instance.currentService.value;
-            if (currentService != null &&
-                (currentService.estado == 'aceptado' ||
-                    currentService.estado == 'asignado' ||
-                    currentService.estado == 'en_sitio' ||
-                    currentService.estado == 'abordo')) {
-              try {
-                serviciosApi.servicioTracking(
-                  id: currentService.id,
-                  lat: pos.latitude,
-                  lng: pos.longitude,
-                );
-              } catch (e) {
-                debugPrint('Error al enviar ubicación a la API: $e');
-              }
-            }
+            _enviarUbicacionBackend(pos);
           });
     } catch (e) {
       debugPrint('Error al iniciar actualizaciones de ubicación: $e');
@@ -382,9 +389,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
-    // No await aquí (dispose se ejecuta rápido); _sendDisconnect ya usa la última posición
     _sendDisconnect();
     _positionStream?.cancel();
+    _backendPositionStream?.cancel();
     _webSocketSubscription?.cancel();
     _positionNotifier.dispose();
     WebSocketApi.close();
