@@ -51,7 +51,8 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _initializeApp(); // 🔥 UN SOLO punto de entrada
+    _initializeApp();
+    WebSocketApi.connectionStatus.addListener(_onWsStatusChanged);
   }
 
   // 🔥 NUEVO: Inicializar todo en el orden correcto
@@ -76,7 +77,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     // 3.1 Restaurar servicio activo si existe
     await _restoreActiveService();
 
-    // 4. Conectar WebSocket
+    // // 4. Conectar WebSocket
     await _connectWebSocket();
 
     // 5. Iniciar seguimiento de ubicación
@@ -116,6 +117,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
       await WebSocketApi.connect('ws/conductor/');
 
       // Escuchar mensajes del servidor
+      _webSocketSubscription?.cancel();
       _webSocketSubscription = WebSocketApi.stream?.listen(
         _handleWebSocketMessage,
         onError: (error) {
@@ -381,12 +383,25 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
     );
   }
 
+  void _onWsStatusChanged() {
+    if (WebSocketApi.connectionStatus.value) {
+      _webSocketSubscription?.cancel();
+      _webSocketSubscription = WebSocketApi.stream?.listen(
+        _handleWebSocketMessage,
+        onError: (error) {},
+        onDone: () {},
+      );
+      debugPrint('Listener de WebSocket asignado tras reconexión');
+    }
+  }
+
   @override
   void dispose() {
+    WebSocketApi.connectionStatus.removeListener(_onWsStatusChanged);
+    _webSocketSubscription?.cancel();
     _sendDisconnect();
     _positionStream?.cancel();
     _backendPositionStream?.cancel();
-    _webSocketSubscription?.cancel();
     _positionNotifier.dispose();
     WebSocketApi.close();
     super.dispose();
@@ -399,7 +414,7 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
         data = jsonDecode(message);
       }
 
-      debugPrint('🔔 WebSocket data: $data');
+      debugPrint('🔔 WebSocket data: ${data['type']}');
 
       if (data is Map<String, dynamic>) {
         final type = data['type'] as String?;
@@ -410,6 +425,9 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           final servicioData = data['servicio'];
           if (servicioData is Map<String, dynamic>) {
             final service = Service.fromJson(servicioData);
+            debugPrint(
+              'Llamando a _showAssigningService con servicio: ${service.id}',
+            );
             _showAssigningService(service);
           }
         }
@@ -420,15 +438,16 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
   }
 
   Future<void> _showAssigningService(Service service) async {
-    if (!mounted) return;
-
-    // NUEVO: si ya hay un modal abierto, ignoro la nueva notificación
-    if (_isShowingAssigningSheet) {
-      debugPrint('⚠️ Ya hay un servicio en pantalla, se ignora ${service.id}');
+    debugPrint('Intentando mostrar modal de servicio: ${service.id}');
+    if (!mounted) {
+      debugPrint('No está montado, no se puede mostrar el modal');
       return;
     }
-
-    _isShowingAssigningSheet = true; // NUEVO
+    if (_isShowingAssigningSheet) {
+      debugPrint('Ya hay un modal abierto, ignorando...');
+      return;
+    }
+    _isShowingAssigningSheet = true;
     try {
       await showModalBottomSheet(
         context: context,
@@ -452,8 +471,11 @@ class _MapPageState extends State<MapPage> with SingleTickerProviderStateMixin {
           },
         ),
       );
+    } catch (e) {
+      debugPrint('Error al mostrar modal de servicio: $e');
     } finally {
-      _isShowingAssigningSheet = false; // NUEVO
+      _isShowingAssigningSheet = false;
+      debugPrint('Modal de servicio cerrado');
     }
   }
 
