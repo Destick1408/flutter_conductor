@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../api/auth.dart'; // <-- nuevo import
+import '../api/auth.dart'; // <-- sigue igual
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,7 +12,9 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
 
-  // Nuevo: estado de carga para el botón
+  // NUEVO: llave para el formulario (validaciones)
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
   bool _isLoading = false;
 
   @override
@@ -22,15 +24,12 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _onLoginPressed() async {
+  Future<void> _onLoginPressed() async {
+    // Validar formulario antes de llamar al backend
+    if (!_formKey.currentState!.validate()) return;
+
     final username = _userController.text.trim();
     final password = _passController.text;
-    if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuario y contraseña requeridos')),
-      );
-      return;
-    }
 
     setState(() => _isLoading = true);
     try {
@@ -41,15 +40,15 @@ class _LoginPageState extends State<LoginPage> {
       if (ok) {
         Navigator.pushReplacementNamed(context, '/map');
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login fallido')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario o contraseña incorrectos')),
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ).showSnackBar(SnackBar(content: Text('Ocurrió un error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -57,81 +56,176 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Colores tipo IVANCAR
+    const ivancarYellow = Color(0xFFFFD600);
+    const ivancarBlack = Colors.black;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: ivancarBlack,
       body: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          width: double.infinity,
-          child: Column(
-            // columna principal
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'LOGO DE EMPRESA',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 24),
-              Text('Usuario:', style: Theme.of(context).textTheme.bodyMedium),
-              TextField(
-                controller: _userController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Ingresa tu usuario',
+        child: Center(
+          child: SingleChildScrollView(
+            // NUEVO: evita overflow con teclado
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 16.0,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // LOGO IVANCAR
+                Image.asset(
+                  'assets/images/ivancar_logo.png',
+                  height: 200,
+                  fit: BoxFit.contain,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Contraseña:',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              TextField(
-                controller: _passController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Ingresa tu contraseña',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 50,
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey,
-                    foregroundColor: Colors.white,
+                const SizedBox(height: 24),
+                Text(
+                  'INICIO DE SESION',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onPressed: _isLoading ? null : _onLoginPressed,
-                  child: _isLoading
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Procesando...',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        )
-                      : Text(
-                          'Iniciar Sesión',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+
+                // FORMULARIO
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Usuario',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        controller: _userController,
+                        textInputAction: TextInputAction.next,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.06),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                          hintText: 'Ingresa tu usuario',
+                          hintStyle: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.person,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'El usuario es obligatorio';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Contraseña',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        controller: _passController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        style: const TextStyle(color: Colors.white),
+                        onFieldSubmitted: (_) {
+                          if (!_isLoading) _onLoginPressed();
+                        },
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.06),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                          ),
+                          hintText: 'Ingresa tu contraseña',
+                          hintStyle: TextStyle(
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'La contraseña es obligatoria';
+                          }
+                          if (value.length < 4) {
+                            return 'Mínimo 4 caracteres';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // BOTÓN
+                      SizedBox(
+                        height: 50,
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ivancarYellow,
+                            foregroundColor: ivancarBlack,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: _isLoading ? null : _onLoginPressed,
+                          child: _isLoading
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.0,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.black,
+                                            ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Procesando...'),
+                                  ],
+                                )
+                              : const Text(
+                                  'Iniciar sesión',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
