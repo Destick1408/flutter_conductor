@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
-        android:label="flutter_conductor"
+        android:label="TaxiDZ"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
